@@ -124,6 +124,27 @@ Crn ekran **nije** dokaz o rušenju i nije dokaz da sesija radi i dalje. Najvero
 isteku mirovanja (redosled se poklapa sa ~10 min neaktivnosti), a crash bi obično ostavio tekst ili poruku, ne
 čistu crnu framebuffer sliku. Harness nikad ne budi ekran, pa se ovo ne može rešiti iz postojećih kadrova.
 
+**Rešeno run-om `41357268299`** (BIOS, `-m 1024`, 32 kadra, `sendkey ret` na 900/1200/1500/1800 s):
+
+| kadar | vreme na satu sesije | ekran |
+| --- | --- | --- |
+| 015 | 23:25 | desktop sa prozorom i panelom |
+| — | 23:26:25 | `sent Enter at 910s` |
+| 016 | — | crn (282 B, ujednačen) |
+| 017 | 23:28 | **desktop se vratio** |
+| 032 | 23:48 | i dalje tu, sat napreduje |
+
+Sesija je preživela gašenje ekrana: sat je posle povratka išao 23:28 → 23:48. Dakle crni rep iz prvog 1 GB run-a
+je **DPMS, ne rušenje**. Dokazi: `docs/evidence/boot-bios-1024mb-run41357268299/`.
+
+Nova posledica, i to prava: **Nova ne isporučuje `xfce4-power-manager.xml`** (skel ima samo desktop, keyboard,
+panel, xfwm i xsettings kanale), pa na ciljnoj mašini važi podrazumevano gašenje ekrana posle ~10 minuta. Za
+„upali i radi" UX to je odluka koja treba da bude doneta, a ne nasleđena.
+
+Usput se vidi i cena jednog nasumičnog pritiska: posle Enter-a je Firefox preko celog ekrana, a panela nema,
+kao da je tastatura aktivirala stavku taskbara. Nije dokazano koji je tačno put, ali to je ono što se menja na
+slici između 015 i 017 — ne promena u sistemu.
+
 Šta ovo **ne** tvrdi: ništa o upotrebljivosti na pravom Celeronu. U tih 1 GB nijedna aplikacija nije otvorena
 osim auto-startovanog Firefox-a, nema instalacije, nema opterećenja. Dokazano je samo da live sesija sa 1 GB
 **dostiže desktop i drži ga**.
