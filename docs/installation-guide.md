@@ -62,6 +62,11 @@ Pisanje ISO-a briše prethodni sadržaj USB-a. Projekat ne izdaje automatske `dd
 
 ## 3. Live provera
 
+**Šta se vidi odmah posle uključivanja.** Na Legacy BIOS mašini (stariji Celeron) boot ide sam: isolinux ima
+timeout od 10 s i podiže „Start Linux Mint" bez pitanja. Na UEFI mašini se pojavi GRUB meni sa listom unosa i
+**stoji na ekranu** dok ne pritisnete Enter — nasleđena Mint-ova konfiguracija nema `set timeout`. To je očekivano,
+nije kvar; prvi unos na listi je pravi.
+
 Pre otvaranja instalera proverite:
 
 - Ispravan BIOS/UEFI režim (`nova-hardware`).
