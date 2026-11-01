@@ -48,14 +48,46 @@ WORK=$(mktemp -d "$OUTPUT/.nova-work.XXXXXX")
 ROOT=$WORK/rootfs
 TREE=$WORK/iso
 MOUNTS=()
-cleanup() {
-    local result=$? failed=0 index
-    trap - EXIT INT TERM
-    for ((index=${#MOUNTS[@]}-1; index>=0; index--)); do
-        if mountpoint -q "${MOUNTS[index]}"; then
-            umount -- "${MOUNTS[index]}" || failed=1
-        fi
+# dpkg and initramfs triggers can leave helpers rooted in the build chroot, which keeps the bind-mounted /sys busy.
+nova_release_chroot() {
+    local root_real proc pid target attempt root_link
+    root_real=$(realpath -- "$ROOT")
+    chroot "$ROOT" udevadm exit 2>/dev/null || true
+    for ((attempt = 0; attempt < 5; attempt++)); do
+        target=0
+        for proc in /proc/[0-9]*; do
+            pid=${proc#/proc/}
+            root_link=$(realpath -e -- "$proc/root" 2>/dev/null) || continue
+            [[ $root_link == "$root_real" ]] || continue
+            if ((attempt == 0)); then
+                printf 'Stopping chroot-resident process %s: %s\n' "$pid" "$(tr '\0' ' ' < "$proc/cmdline" 2>/dev/null)"
+                kill -TERM "$pid" 2>/dev/null || true
+            elif ((attempt == 2)); then
+                kill -KILL "$pid" 2>/dev/null || true
+            fi
+            target=1
+        done
+        ((target == 1)) || return 0
+        sleep 1
     done
+}
+nova_unmount_all() {
+    local failed=0 index try
+    nova_release_chroot
+    for ((index=${#MOUNTS[@]}-1; index>=0; index--)); do
+        mountpoint -q "${MOUNTS[index]}" || continue
+        for ((try = 0; try < 5; try++)); do
+            umount -- "${MOUNTS[index]}" && break
+            sleep 1
+        done
+        mountpoint -q "${MOUNTS[index]}" && failed=1
+    done
+    return "$failed"
+}
+cleanup() {
+    local result=$? failed=0
+    trap - EXIT INT TERM
+    nova_unmount_all || failed=1
     if ((failed)); then
         printf 'Unmount failed; workspace preserved: %s\n' "$WORK" >&2
         exit 1
@@ -161,7 +193,7 @@ if [[ -e "$WORK/policy-rc.d.original" ]]; then
 else
     rm -f -- "$ROOT/usr/sbin/policy-rc.d"
 fi
-for ((i=${#MOUNTS[@]}-1; i>=0; i--)); do umount -- "${MOUNTS[i]}"; done
+nova_unmount_all
 MOUNTS=()
 EPOCH=${SOURCE_DATE_EPOCH:-$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source_date_epoch"])' "$PROJECT/build/base.json")}
 [[ "$EPOCH" =~ ^[0-9]+$ ]] || { printf '%s\n' 'Invalid SOURCE_DATE_EPOCH'; exit 1; }
