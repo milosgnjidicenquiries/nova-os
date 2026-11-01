@@ -4,11 +4,14 @@ Izgrađen je **strukturalno proveren** ISO (draft release `nova-build-8`, 3.134.
 `c0e848b44dc14209747d5bb69386cb21b8a2bdecaa28c1ed637c73488b01afbb`).
 
 **Dokazano:** slika se podiže do live XFCE desktopa — snimci ekrana u `docs/evidence/boot-bios-4096mb-run41345675650/`
-(Legacy BIOS, QEMU TCG, 4 GB RAM, run `41345675650`). Vidi se splash, zatim desktop sa panelom, satom i Nova
-dobrodošlicom iz `/usr/share/nova/welcome.html`.
+i `docs/evidence/boot-bios-1024mb-run41350648294/` (Legacy BIOS, QEMU TCG, prvo sa 4 GB pa sa **1 GB RAM-a**).
+Vidi se splash, zatim desktop sa panelom, satom i Nova dobrodošlicom iz `/usr/share/nova/welcome.html`. Sa 1 GB
+je desktop viđen kroz kadrove u kojima sat napreduje 21:55 → 22:01, pa je i sam memory budget live sesije
+izvodljiv — bez ijedne otvorene aplikacije preko auto-startovanog Firefox-a.
 
-**Nije dokazano:** UEFI boot (test u toku), Secure Boot, instalacija na disk, boot sa diska i bilo kakav rad na
-1 GB RAM-a. Zato su koraci ниже i dalje napisani kao QA postupak, ne kao uputstvo za gotov proizvod.
+**Nije dokazano:** UEFI putanja do desktopa (GRUB meni jeste viđen, desktop ne), Secure Boot, instalacija na disk,
+boot sa diska i bilo kakva upotrebljivost ili performanse na pravom Celeronu. Zato su koraci ниже i dalje napisani
+kao QA postupak, ne kao uputstvo za gotov proizvod.
 
 ## 0. Ako slika dolazi podeljena na delove (Windows)
 

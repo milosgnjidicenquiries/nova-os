@@ -5,6 +5,7 @@ Hosted runners have no /dev/kvm, so this is pure TCG emulation: it answers
 "does the image reach a desktop", it says nothing about real speed.
 """
 import argparse
+import hashlib
 import os
 import shlex
 import socket
@@ -137,11 +138,12 @@ def main():
                 print(f"screendump produced no file at frame {attempt}", flush=True)
                 continue
             subprocess.run(["convert", str(ppm), str(frame)], check=True)
-            ppm.unlink()
-            # A blank screen hashes the same as the next blank screen; report change, not content.
-            digest = __import__("hashlib").sha256(frame.read_bytes()).hexdigest()[:12]
+            # Hash the PPM, not the PNG: ImageMagick stamps a varying chunk into every
+            # PNG, so identical screens looked like they kept changing.
+            digest = hashlib.sha256(ppm.read_bytes()).hexdigest()[:12]
             changed = "changed" if not frames or frames[-1][1] != digest else "same"
             frames.append((frame.name, digest))
+            ppm.unlink()
             print(f"frame {attempt:03d}: {frame.name} {frame.stat().st_size} bytes {digest} {changed}", flush=True)
     finally:
         if guest.poll() is None:

@@ -4,9 +4,9 @@
 
 Isporučen je izvorni razvojni projekat sa CI build pipeline-om **i jedna stvarno izgrađena, strukturalno proverena
 slika** (draft release `nova-build-8`, 3.134.521.344 bajta). Slika **podiže do live XFCE desktopa** — viđeno na
-snimcima ekrana u emulaciji (Legacy BIOS, 4 GB). **Nije potvrđeno** da se instalira, da radi sa 1 GB RAM-a, ni da
-UEFI putanja dođe do desktopa (GRUB meni pod UEFI-jem jeste viđen, desktop još ne). Nijedan taj korak nije
-završen, a ovaj izveštaj razdvaja ono što je stvarno provereno od onoga što tek čeka.
+snimcima ekrana u emulaciji, i sa 4 GB **i sa 1 GB RAM-a**. **Nije potvrđeno** da se instalira, da UEFI putanja
+dođe do desktopa (GRUB meni pod UEFI-jem jeste viđen), ni da je sesija upotrebljiva na pravom Celeronu. Nijedan
+taj korak nije završen, a ovaj izveštaj razdvaja ono što je stvarno provereno od onoga što tek čeka.
 
 ## Okruženja
 
@@ -57,7 +57,7 @@ odbijen drugi fingerprint, odbijen izmenjen manifest i payload). **To su provere
 | 41345007667 | 4m24s | neuspeh u boot koraku | `join-parts.py` spojio 2 dela i potvrdio SHA256, ali QEMU monitor kod je blokirao na `stream.read(4096)` (dočekuje 4096 bajtova, a pozdrav je kraći) → `TimeoutError`, nijedan kadar. `serial.log` je **prazan** jer Mint koristi `quiet splash` bez `console=ttyS0`, pa je screendump jedini kanal. Ispravka: `recv` sa istekom + ponavljanje (`boot-capture.py`). |
 | 41345675650 | 47m | **boot dokazan** | BIOS/TCG, `-m 4096`, 2 vCPU. Kadrovi: splash tokom podizanja (~25 s), pa **živ XFCE desktop** sa panelom, satom 20:23 → 20:25 kroz uzastopne kadrove, i Nova dobrodošlicom otvorenom iz `/usr/share/nova/welcome.html`. Snimci su u `docs/evidence/boot-bios-4096mb-run41345675650/`. |
 | 41350074375 | 39m55s | delimičan (UEFI boot test) | Koraci zeleni, ali od 25 kadrova sačuvana su **samo 2** (015 i 023) i oba prikazuju **GRUB 2.12 EFI meni** — dokaz da EFI boot slika i GRUB-EFI rade, bez dokaza o desktopu. Uzrok mirovanja: `grub.cfg` nema `set timeout` (nasleđeno iz Mint-a). Harness je odbacivao monitor odgovor pa je svaki neuspeo kadar bio neobjašnjiv. |
-| 41350648294 | — | u toku | **BIOS sa `-m 1024`** — jedini emulirani test koji gađa pravo usko grlo ciljne mašine (Celeron, 1 GB). |
+| 41350648294 | 1h13m | **1 GB desktop viđen** | BIOS/TCG sa `-m 1024`. Kadri 008–013: live XFCE sa dobrodošlicom, sat 21:55 → 22:01. Od kadra 016 nadalje ujednačena crnina (pixel-identični kadrovi) — najverovatnije DPMS gašenje, ali harness ne budi ekran pa se ne tvrdi ništa. Snimci: `docs/evidence/boot-bios-1024mb-run41350648294/`. |
 | 41354005351 | — | u redu | UEFI ponovljeno sa `--enter-at 120,300` (`sendkey ret`), da se vidi da li prvi unos menija zaista diže live sesiju. |
 
 ## Emulirani boot — šta je viđen, a šta nije
@@ -94,6 +94,29 @@ Dva fixa u harnessu (commit `33f2d23`): monitor odgovor se više ne odbacuje, pa
 nije napravljen, i dodato je `--enter-at` koje šalje `sendkey ret` u zadate sekunde. Run `41354005351`
 ponavlja UEFI sa Enter-om na 120 s i 300 s.
 
+### 1 GB RAM (run 41350648294): desktop ustaje, pa se ekran ugasi
+
+`boot_mode=bios`, `-m 1024`, 2 vCPU, 30 kadrova (sačuvano 20). Trajanje run-a 1h13m26s naspram 40 min za 4 GB —
+i to je razlika u emulaciji, ne merenje performansi.
+
+- kadar 001 (~25 s): splash **Mint-ovog** logotipa. Nova još ne menja boot splash, što je poznat propust u
+  brendingu, ne kvar.
+- kadrovi 008–013 (21:56 → 22:02): **puni live XFCE desktop** sa 1024 MB RAM-a — panel, Nova launcher, Firefox sa
+  dobrodošlicom, a sat napreduje 21:55 → 22:01 kroz uzastopne kadrove. Sesija živi najmanje 6 minuta svog vremena.
+- kadrovi 016–029: **ujednačena crnina**. Provereno je dekodiranjem PNG-a da su ti kadroi piksel-identični i svi
+  nula, dakle ekran je zaista crn, a ne da harness pravi razliku.
+
+Crn ekran **nije** dokaz o rušenju i nije dokaz da sesija radi i dalje. Najverovatnije je DPMS gašenje ekrana po
+isteku mirovanja (redosled se poklapa sa ~10 min neaktivnosti), a crash bi obično ostavio tekst ili poruku, ne
+čistu crnu framebuffer sliku. Harness nikad ne budi ekran, pa se ovo ne može rešiti iz postojećih kadrova.
+
+Šta ovo **ne** tvrdi: ništa o upotrebljivosti na pravom Celeronu. U tih 1 GB nijedna aplikacija nije otvorena
+osim auto-startovanog Firefox-a, nema instalacije, nema opterećenja. Dokazano je samo da live sesija sa 1 GB
+**dostiže desktop i drži ga**.
+
+Usput je nađen još jedan flaw u harnessu: „changed/same" se računalo nad PNG bajtovima, a ImageMagick u svaki PNG
+upisuje varijabilan chunk, pa je svakih crnih 282 bajta izgledalo kao nov ekran. Sada se hešira PPM.
+
 ### Slike između run-ova nisu identične
 
 Run 6 je dao SHA256 `ee5fa2d631d32ed562eb4507118221824b1c0ea309cbe3d982bee2b42b0470f6`, run 8 `c0e848b44dc14209747d5bb69386cb21b8a2bdecaa28c1ed637c73488b01afbb`. Razlika je očekivana i dokazuje da pipeline **nije** bit-reproducible: `apt upgrade` unutar horda uzima aktuelne pakete u trenutku build-a, a `SOURCE_DATE_EPOCH` samo normalizuje timestamp-ove i squashfs metabaze. Reproducibilnost zahteva fiksiranje celog APT snapshot-a, što ovaj projekat ne tvrdi.
@@ -127,7 +150,9 @@ direktorijumom, a ne zbog sadržaja slike.
   Emulirani BIOS boot do XFCE desktopa je **viđen** (gore), a emulirani UEFI samo do GRUB menija — ni jedno ni
   drugo nije dokaz o platformi.
 - Instalacija na HDD/SSD, particionisanje, disk-only reboot, rollback.
-- Merenja na 1/2/4 GB RAM-a, CPU, Wi-Fi, audio, USB, suspend, stvarni Wine/Steam/Bottles.
+- Merenja na 1/2/4 GB RAM-a, CPU, Wi-Fi, audio, USB, suspend, stvarni Wine/Steam/Bottles. Live sesija sa 1 GB je
+  viđena kako **dostiže desktop i drži ga**, ali bez ijedne otvorene aplikacije osim auto-startovanog Firefox-a,
+  dakle bez dokaza o upotrebljivosti.
 - Pravni pregled redistribucije (`licenses/inventory.csv` nosi `redistribution_review=pending`).
 - Bit-identična reproducibilnost (nije cilj koji je dostignut; skriptovan remaster ≠ reproducible-build sertifikacija).
 
@@ -136,12 +161,14 @@ direktorijumom, a ne zbog sadržaja slike.
 Slika `nova-build-8` je spojena i proverena na Windows hostu (`_release/nova-os-0.1.0-amd64.iso`, SHA256
 `c0e848b4…01afbb`) i emulirano je viđeno kako diže do XFCE desktopa. Redosled koji preostaje:
 
-1. **UEFI emulirani boot** — pokrenut, run `41350074375` (`boot_mode=uefi`, 4096 MB, 25 kadrova). BIOS putanja je
-   dokazana, UEFI rezultati se dodaju kad run završi.
-2. **USB + fizičko podizanje.** Ručno pisanje proverenim image writer-om (Rufus DD mode ili Ventoy), bez
+1. **UEFI emulirani boot** — prvi pokušaj (`41350074375`) stao je na GRUB meni jer konfiguracija nema timeout.
+   Ponovljeno je sa `41354005351`, koji šalje Enter na 120 s i 300 s, da se vidi da li ta stavka menija diže desktop.
+2. **Da li je crn ekran posle 10. minuta gašenje ili nešto gore** — harness sada beleži i razlog neuspelog
+   kadra; treba dodati i buđenje ekrana pre nego što se to može tvrditi.
+3. **USB + fizičko podizanje.** Ručno pisanje proverenim image writer-om (Rufus DD mode ili Ventoy), bez
    automatizovanog `dd`; uputstvo i provera heša su u `docs/installation-guide.md`, korak 2. Zahteva USB od 8 GB+
    koji korisnik mora fizički da priključi — na ovom hostu trenutno nema nijedan USB uređaj.
-3. **Instalacija na testni disk** i proverа reboot-a sa diska, pa tek onda `nova-hardware` i benchmark na 1 GB.
+4. **Instalacija na testni disk** i proverа reboot-a sa diska, pa tek onda `nova-hardware` i benchmark na 1 GB.
 
 Performanse se i dalje ne mere emulacijom; pravi 1 GB test traži fizički Celeron ili mašinu sa uključenim VT-x-om.
 
