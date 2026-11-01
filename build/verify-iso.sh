@@ -46,14 +46,17 @@ python3 - "$WORK" <<'PY'
 import sys
 from pathlib import Path
 work = Path(sys.argv[1])
-for name in ('filesystem.manifest', 'filesystem.manifest-desktop', 'filesystem.size', 'vmlinuz'):
+for name in ('filesystem.manifest', 'filesystem.size', 'vmlinuz'):
     if not (work / 'casper' / name).is_file(): raise SystemExit('Missing casper/' + name)
+if not any((work / 'casper' / name).is_file() for name in ('filesystem.manifest-desktop', 'filesystem.manifest-remove')):
+    raise SystemExit('Missing Mint installer package manifest')
 if not any((work / 'casper' / name).is_file() for name in ('initrd', 'initrd.lz', 'initrd.gz')):
     raise SystemExit('Missing casper initrd')
 for name in ('etc/nova-release', 'usr/local/bin/nova-compat', 'usr/local/bin/nova-hardware', 'usr/share/themes/Nova/gtk-3.0/gtk.css'):
     if not (work / 'content' / name).is_file(): raise SystemExit('Missing Nova payload: ' + name)
 manifest = (work / 'casper/filesystem.manifest').read_text()
-if 'nova-defaults ' not in manifest or 'ubiquity ' not in manifest or 'casper ' not in manifest:
+packages = {line.split()[0] for line in manifest.splitlines() if line.strip()}
+if not {'nova-defaults', 'ubiquity', 'casper'} <= packages:
     raise SystemExit('Missing defaults/live/installer package in manifest')
 print('Live payload, installer manifest, Nova package and BIOS/UEFI boot metadata: OK')
 print('This is NOT a boot, installation, Secure Boot or runtime test.')

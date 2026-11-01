@@ -73,7 +73,8 @@ trap 'exit 143' TERM
 exec > >(tee "$OUTPUT/build.log") 2>&1
 mkdir -- "$TREE"
 xorriso -osirrox on -indev "$ISO" -extract / "$TREE"
-[[ -f "$TREE/casper/filesystem.squashfs" && -f "$TREE/casper/filesystem.manifest-desktop" ]] || { printf '%s\n' 'Unsupported Mint ISO layout.'; exit 1; }
+[[ -f "$TREE/casper/filesystem.squashfs" && -f "$TREE/casper/filesystem.manifest" ]] || { printf '%s\n' 'Unsupported Mint ISO layout.'; exit 1; }
+[[ -f "$TREE/casper/filesystem.manifest-desktop" || -f "$TREE/casper/filesystem.manifest-remove" ]] || { printf '%s\n' 'No Mint installer package manifest in the source image.'; exit 1; }
 ISO_TMP_SQUASH=$TREE/casper/filesystem.squashfs
 unsquashfs -d "$ROOT" "$TREE/casper/filesystem.squashfs"
 # Reuse the source image's own compression so the remaster matches upstream behavior.

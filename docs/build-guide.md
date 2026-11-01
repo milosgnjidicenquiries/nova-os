@@ -62,6 +62,12 @@ APT radi `update`, bezbednu `upgrade --with-new-pkgs` bez uklanjanja paketa, zat
 
 Nasleđeni initrd naziv (`initrd`, `initrd.lz` ili `initrd.gz`) i putanja se očuvaju; kernel/initramfs se sinhronizuju. BIOS/UEFI informacije se preuzimaju od originalnog ISO-a, ne iz pretpostavljenih GRUB flag-ova.
 
+Mint 22.1 Xfce u `casper/` nema `filesystem.manifest-desktop`: spisak paketa za uklanjanje pri instalaciji je u
+`filesystem.manifest-remove` (128 stavki, samo nazivi), a `filesystem.manifest` je tabom razdvojen. `finalize-tree.py`
+prihvata oba rasporeda, regeneriše `filesystem.manifest-remove` tako što izbacuje pakete koje je Nova već purgovala, i
+zadržava razdvajanje kakvo ima baza. Prvobitna provera je to odbila (build je stao pre nego što je išta dirnuo) —
+zato što je tražila isključivo `manifest-desktop`.
+
 ## Očekivani output — tek nakon stvarnog uspešnog build-a
 
 - `nova-os-0.1.0-amd64.iso`

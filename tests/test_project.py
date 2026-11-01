@@ -117,6 +117,17 @@ class ManifestTests(unittest.TestCase):
         current = "casper 2\nubiquity 2\nxfce4 5\nnova-defaults 0.1.0\n"
         self.assertEqual(finalize.desktop_manifest(current, original, installed), "xfce4 5\nnova-defaults 0.1.0\n")
 
+    def test_remove_list_drops_purged_packages(self):
+        original_remove = "boot-repair\nthunderbird\nfirefox-locale-en\n"
+        self.assertEqual(finalize.prune_remove_list(original_remove, {"boot-repair", "firefox-locale-en"}), "boot-repair\nfirefox-locale-en\n")
+
+    def test_tab_separated_manifest_still_parses(self):
+        # Mint 22.1 ships casper manifests as "package\tversion", not "package version".
+        original = "casper\t1\nxfce4\t4\n"
+        installed = "xfce4\t4\n"
+        current = "casper\t2\nxfce4\t5\n"
+        self.assertEqual(finalize.desktop_manifest(current, original, installed), "xfce4\t5\n")
+
     def test_full_lock(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "lock"

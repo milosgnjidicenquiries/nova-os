@@ -10,6 +10,10 @@ def desktop_manifest(current, original, original_desktop):
     return "".join(line + "\n" for line in current.splitlines() if line.strip() and line.split()[0] not in excluded)
 
 
+def prune_remove_list(original_remove, installed):
+    return "".join(line + "\n" for line in original_remove.splitlines() if line.strip() and line.split()[0] in installed)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("tree", type=Path)
@@ -19,15 +23,21 @@ def main():
     args = parser.parse_args()
     casper = args.tree / "casper"
     manifest = casper / "filesystem.manifest"
-    installed_manifest = casper / "filesystem.manifest-desktop"
-    if not installed_manifest.exists():
-        raise SystemExit("Missing Mint installer manifest; refusing to guess installer package exclusions")
+    desktop_manifest_path = casper / "filesystem.manifest-desktop"
+    remove_manifest = casper / "filesystem.manifest-remove"
+    if not (desktop_manifest_path.is_file() or remove_manifest.is_file()):
+        raise SystemExit("Missing Mint installer manifests (neither filesystem.manifest-desktop nor filesystem.manifest-remove); refusing to guess installer package handling")
     inventory = subprocess.check_output(["chroot", str(args.root), "dpkg-query", "-W", "-f=${Package}\t${Version}\t${db:Status-Status}\\n"], text=True)
-    current = "".join(package + " " + version + "\n" for package, version, status in (line.split("\t") for line in inventory.splitlines()) if status == "installed")
+    installed = [(package, version) for package, version, status in (line.split("\t") for line in inventory.splitlines()) if status == "installed"]
+    # Mint 22.1 separates name and version with a tab; keep whatever the base image used.
+    separator = "\t" if "\t" in manifest.read_text() else " "
+    current = "".join(package + separator + version + "\n" for package, version in installed)
     original = manifest.read_text()
-    original_desktop = installed_manifest.read_text()
     manifest.write_text(current)
-    installed_manifest.write_text(desktop_manifest(current, original, original_desktop))
+    if desktop_manifest_path.is_file():
+        desktop_manifest_path.write_text(desktop_manifest(current, original, desktop_manifest_path.read_text()))
+    if remove_manifest.is_file():
+        remove_manifest.write_text(prune_remove_list(remove_manifest.read_text(), {package for package, _ in installed}))
     (casper / "filesystem.size").write_text(subprocess.check_output(["du", "-sx", "--block-size=1", str(args.root)], text=True).split()[0] + "\n")
     squashfs = casper / "filesystem.squashfs"
     squashfs.unlink()
