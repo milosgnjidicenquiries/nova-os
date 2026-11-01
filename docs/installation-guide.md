@@ -1,8 +1,14 @@
 # VM, USB, instalacija i oporavak
 
 Izgrađen je **strukturalno proveren** ISO (draft release `nova-build-8`, 3.134.521.344 bajta, SHA256
-`c0e848b44dc14209747d5bb69386cb21b8a2bdecaa28c1ed637c73488b01afbb`). Nije još provereno da podiže, da se instalira
-ili da radi na 1 GB RAM-a — koraci ниже su zato napisani kao QA postupak, ne kao uputstvo za gotov proizvod.
+`c0e848b44dc14209747d5bb69386cb21b8a2bdecaa28c1ed637c73488b01afbb`).
+
+**Dokazano:** slika se podiže do live XFCE desktopa — snimci ekrana u `docs/evidence/boot-bios-4096mb-run41345675650/`
+(Legacy BIOS, QEMU TCG, 4 GB RAM, run `41345675650`). Vidi se splash, zatim desktop sa panelom, satom i Nova
+dobrodošlicom iz `/usr/share/nova/welcome.html`.
+
+**Nije dokazano:** UEFI boot (test u toku), Secure Boot, instalacija na disk, boot sa diska i bilo kakav rad na
+1 GB RAM-a. Zato su koraci ниже i dalje napisani kao QA postupak, ne kao uputstvo za gotov proizvod.
 
 ## 0. Ako slika dolazi podeljena na delove (Windows)
 
@@ -37,7 +43,20 @@ Po instalaciji zatvoriti VM i ručno pokrenuti QEMU bez `-cdrom`, sa napravljeni
 
 ## 2. USB — izbor uređaja mora biti ručan
 
-Napravite rezervnu kopiju podataka. Izberite prazan USB odgovarajuće veličine. Koristite postojeći provereni USB image writer (Mint USB Image Writer ili Rufus na Windows-u) i **ručno proverite kapacitet, model i slovo USB uređaja** pre potvrde.
+Fajl koji se piše je `nova-os-0.1.0-amd64.iso` (3,13 GB, SHA256 počinje sa `c0e848b4`). Treba vam USB od **najmanje
+8 GB** (4 GB je premalo za ovu sliku) na kojem nema ničega što vam treba.
+
+Dve provere pre pisanja:
+1. Velčina i model USB-a moraju se poklapati sa onim što vidite u Windows Exploreru.
+2. Heš: `Get-FileHash -Algorithm SHA256 .\nova-os-0.1.0-amd64.iso` treba da da `C0E848B4...01AFBB` (velika/mala slova nebitna).
+
+**Opcija A — Rufus (jedan USB po buildu).** Pokrenite Rufus, u polju „Boot selection" stavite putanju do `.iso`,
+izaberite **DD / raw write** kad Rufus pita, i potvrdu dajte tek kad provera slova uređaja odgovara tom USB-u.
+Trajanje zavisi od USB-a i može biti i 20+ minuta; ne prekidajte.
+
+**Opcija B — Ventoy (jednom flashovan USB, posle samo kopirate `.iso` kao običan fajl).** Praktičnije dok se
+buildovi menjaju, ali Ventoy podiže sliku preko sopstvenog GRUB-a, pa **uspešan boot pod Ventoy-om nije dokaz
+da radi i sirovo napisana slika**. Za konačnu proveru na Celeronu koristite opciju A.
 
 Pisanje ISO-a briše prethodni sadržaj USB-a. Projekat ne izdaje automatske `dd`, format ili partition komande. Ne pravite boot USB na disku sa važnim podacima. Bez proverene image-writing operacije ne pretpostavljajte da kopiranje .iso fajla na USB čini USB bootabilnim.
 

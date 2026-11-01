@@ -107,8 +107,11 @@ direktorijumom, a ne zbog sadržaja slike.
 Slika `nova-build-8` je spojena i proverena na Windows hostu (`_release/nova-os-0.1.0-amd64.iso`, SHA256
 `c0e848b4…01afbb`) i emulirano je viđeno kako diže do XFCE desktopa. Redosled koji preostaje:
 
-1. **UEFI emulirani boot** (`boot-test.yml`, `boot_mode=uefi`) — BIOS putanja je dokazana, UEFI još nije.
-2. **USB + fizičko podizanje.** Ručno pisanje proverenim image writer-om (Rufus/Ventoy), bez automatizovanog `dd`.
+1. **UEFI emulirani boot** — pokrenut, run `41350074375` (`boot_mode=uefi`, 4096 MB, 25 kadrova). BIOS putanja je
+   dokazana, UEFI rezultati se dodaju kad run završi.
+2. **USB + fizičko podizanje.** Ručno pisanje proverenim image writer-om (Rufus DD mode ili Ventoy), bez
+   automatizovanog `dd`; uputstvo i provera heša su u `docs/installation-guide.md`, korak 2. Zahteva USB od 8 GB+
+   koji korisnik mora fizički da priključi — na ovom hostu trenutno nema nijedan USB uređaj.
 3. **Instalacija na testni disk** i proverа reboot-a sa diska, pa tek onda `nova-hardware` i benchmark na 1 GB.
 
 Performanse se i dalje ne mere emulacijom; pravi 1 GB test traži fizički Celeron ili mašinu sa uključenim VT-x-om.
