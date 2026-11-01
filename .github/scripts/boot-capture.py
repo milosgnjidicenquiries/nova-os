@@ -6,7 +6,6 @@ Hosted runners have no /dev/kvm, so this is pure TCG emulation: it answers
 """
 import argparse
 import hashlib
-import os
 import shlex
 import socket
 import subprocess
@@ -14,53 +13,81 @@ import sys
 import time
 from pathlib import Path
 
+PROMPT = b"(qemu)"
 
-def monitor(sock_path, command, wait=10.0):
-    """Send one human-monitor command and drain the reply.
 
-    Reading a fixed byte count blocks forever (the greeting is far shorter than
-    the read), so the socket is drained with recv until it goes quiet.
+class Monitor:
+    """One long-lived HMP connection.
+
+    Reconnecting per command loses against QEMU's single-client monitor: the
+    fresh socket inherits the previous prompt, the command is never parsed, and
+    screendump answers "(qemu)" while producing no file. That failure looked
+    like a broken guest until the reply was logged.
     """
-    received = []
-    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
-        connection.settimeout(wait)
-        connection.connect(str(sock_path))
-        try:
-            connection.recv(65536)
-        except (socket.timeout, BlockingIOError):
-            pass
-        connection.sendall((command + "\n").encode())
-        deadline = time.time() + wait
-        while time.time() < deadline:
+
+    def __init__(self, sock_path, timeout=10.0):
+        self.connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.connection.settimeout(timeout)
+        self.connection.connect(str(sock_path))
+        self.buffer = b""
+
+    def wait_for_prompt(self, limit):
+        deadline = time.time() + limit
+        while PROMPT not in self.buffer:
+            if time.time() > deadline:
+                return False
             try:
-                chunk = connection.recv(65536)
+                chunk = self.connection.recv(65536)
             except (socket.timeout, BlockingIOError):
-                break
+                continue
             if not chunk:
-                break
-            received.append(chunk)
-            if b"(qemu)" in chunk:
-                break
-    return b"".join(received).decode("utf-8", "replace")
+                return False
+            self.buffer += chunk
+        return True
 
+    def command(self, text, wait=10.0):
+        """Send one command and return (saw_prompt, reply_text)."""
+        self.buffer = b""
+        self.connection.sendall((text + "\n").encode())
+        return self.wait_for_prompt(wait), self.buffer.decode("utf-8", "replace").strip()
 
-def screendump(sock_path, ppm, retries=3):
-    """Dump the screen, reporting why a failed attempt failed.
-
-    Without the monitor reply a missing file is undiagnosable, and this loop
-    runs on a hosted runner where a retry costs the whole job.
-    """
-    last = ""
-    for attempt in range(retries):
+    def close(self):
         try:
-            last = monitor(sock_path, f"screendump {ppm}", wait=5.0)
-        except OSError as error:
-            last = str(error)
+            self.connection.close()
+        except OSError:
+            pass
+
+
+def connect_monitor(sock_path, tries=12):
+    """Wait for QEMU to create the socket, then prove the monitor answers."""
+    deadline = time.time() + 60
+    while time.time() < deadline:
+        if sock_path.exists():
+            connection = None
+            try:
+                connection = Monitor(sock_path)
+                if connection.wait_for_prompt(5.0):
+                    ok, reply = connection.command("info status")
+                    if ok:
+                        print(f"monitor ready: {reply!r}", flush=True)
+                        return connection
+            except OSError:
+                pass
+            if connection:
+                connection.close()
+        time.sleep(2)
+    raise SystemExit(f"QEMU monitor at {sock_path} never answered; no boot evidence possible")
+
+
+def screendump(connection, ppm, retries=3):
+    """Dump the screen, reporting why a failed attempt failed."""
+    for attempt in range(retries):
+        ok, reply = connection.command(f"screendump {ppm}")
         for _ in range(20):
             if ppm.is_file() and ppm.stat().st_size:
                 return True
             time.sleep(0.5)
-        print(f"screendump attempt {attempt + 1}: no file; monitor said {last.strip()[:300]!r}", flush=True)
+        print(f"screendump attempt {attempt + 1}: no file (prompt seen: {ok}, monitor said {reply[:300]!r})", flush=True)
     return False
 
 
@@ -69,8 +96,13 @@ def parse_times(value):
     return sorted({int(part) for part in value.split(",") if part.strip()})
 
 
-def wait_with_keys(sock_path, seconds, pending, elapsed):
-    """Sleep in short ticks, firing any scheduled Enter keypress that came due.
+def press(connection, key):
+    ok, reply = connection.command(f"sendkey {key}")
+    print(f"sent {key}: prompt={ok} reply={reply[:120]!r}", flush=True)
+
+
+def wait_with_keys(connection, seconds, pending, elapsed):
+    """Sleep in short ticks, firing any scheduled keypress that came due.
 
     A single long sleep would let a scheduled keystroke land minutes late, and
     the point of the keystroke is to dismiss a boot menu that never times out.
@@ -80,11 +112,28 @@ def wait_with_keys(sock_path, seconds, pending, elapsed):
         step = min(15, target - elapsed)
         time.sleep(step)
         elapsed += step
-        while pending and pending[0] <= elapsed:
-            pending.pop(0)
-            reply = monitor(sock_path, "sendkey ret", wait=5.0)
-            print(f"sent Enter at {elapsed}s: {reply.strip()[:200]!r}", flush=True)
+        while pending and pending[0][0] <= elapsed:
+            press(connection, pending.pop(0)[1])
     return elapsed
+
+
+def qemu_command(args, iso, monitor_socket):
+    command = [
+        "qemu-system-x86_64", "-machine", "pc", "-cpu", "qemu64", "-smp", args.cpus, "-m", args.memory,
+        "-cdrom", str(iso), "-boot", "d", "-vga", "std", "-display", "none", "-no-reboot",
+        "-rtc", "base=utc", "-monitor", f"unix:{monitor_socket},server,nowait",
+        "-serial", f"file:{args.out / 'serial.log'}",
+    ]
+    if args.mode == "uefi":
+        code = Path("/usr/share/OVMF/OVMF_CODE_4M.fd")
+        vars_template = Path("/usr/share/OVMF/OVMF_VARS_4M.fd")
+        if not code.is_file():
+            raise SystemExit(f"UEFI mode needs {code}; install the ovmf package")
+        vars_file = args.out / "OVMF_VARS.fd"
+        vars_file.write_bytes(vars_template.read_bytes())
+        command[1:1] = ["-drive", f"if=pflash,format=raw,readonly=on,file={code}",
+                        "-drive", f"if=pflash,format=raw,file={vars_file}"]
+    return command
 
 
 def main():
@@ -104,37 +153,26 @@ def main():
     monitor_socket = args.out / "monitor.sock"
     if monitor_socket.exists():
         monitor_socket.unlink()
-    command = [
-        "qemu-system-x86_64", "-machine", "pc", "-cpu", "qemu64", "-smp", args.cpus, "-m", args.memory,
-        "-cdrom", str(iso), "-boot", "d", "-vga", "std", "-display", "none", "-no-reboot",
-        "-rtc", "base=utc", "-monitor", f"unix:{monitor_socket},server,nowait",
-        "-serial", f"file:{args.out / 'serial.log'}",
-    ]
-    if args.mode == "uefi":
-        code = Path("/usr/share/OVMF/OVMF_CODE_4M.fd")
-        vars_template = Path("/usr/share/OVMF/OVMF_VARS_4M.fd")
-        if not code.is_file():
-            raise SystemExit(f"UEFI mode needs {code}; install the ovmf package")
-        vars_file = args.out / "OVMF_VARS.fd"
-        vars_file.write_bytes(vars_template.read_bytes())
-        command[1:1] = ["-drive", f"if=pflash,format=raw,readonly=on,file={code}", "-drive", f"if=pflash,format=raw,file={vars_file}"]
+    # "ret" is what dismisses the GRUB menu; the name stays readable in the log.
+    pending = [(second, "ret") for second in parse_times(args.enter_at)]
+    command = qemu_command(args, iso, monitor_socket)
     print("QEMU:", " ".join(shlex.quote(part) for part in command), flush=True)
     guest = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    connection = connect_monitor(monitor_socket)
     frames = []
-    pending = parse_times(args.enter_at)
     elapsed = 0
     try:
         for attempt in range(1, args.count + 1):
             # The first frame is taken early so the boot loader / early console is
             # captured even when the desktop itself needs minutes under emulation.
-            elapsed = wait_with_keys(monitor_socket, args.interval if attempt > 1 else min(args.interval, 25),
-                                     pending, elapsed)
+            due = args.interval if attempt > 1 else min(args.interval, 25)
+            elapsed = wait_with_keys(connection, due, pending, elapsed)
             if guest.poll() is not None:
                 print(f"QEMU exited early with code {guest.returncode}: {guest.stderr.read()[:2000]}", flush=True)
                 break
             frame = args.out / f"screen-{attempt:03d}.png"
             ppm = (args.out / f"screen-{attempt:03d}.ppm").resolve()
-            if not screendump(monitor_socket, ppm):
+            if not screendump(connection, ppm):
                 print(f"screendump produced no file at frame {attempt}", flush=True)
                 continue
             subprocess.run(["convert", str(ppm), str(frame)], check=True)
@@ -146,11 +184,12 @@ def main():
             ppm.unlink()
             print(f"frame {attempt:03d}: {frame.name} {frame.stat().st_size} bytes {digest} {changed}", flush=True)
     finally:
+        try:
+            connection.command("quit", wait=5.0)
+        except OSError as error:
+            print(f"monitor quit failed: {error}", flush=True)
+        connection.close()
         if guest.poll() is None:
-            try:
-                monitor(monitor_socket, "quit", wait=5.0)
-            except OSError as error:
-                print(f"monitor quit failed: {error}", flush=True)
             try:
                 guest.wait(timeout=20)
             except subprocess.TimeoutExpired:
