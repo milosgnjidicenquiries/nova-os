@@ -32,7 +32,7 @@ sa `keyserver.ubuntu.com`: ista vrednost. Ako bi se promenio, build staje.
 py -3 tests/run-tests.py
 ```
 
-**76 testova, 75 prošlo, 1 preskočen (Windows nema privilegiju za stvarni symlink), bez failure/error rezultata.**
+**82 testa, 81 prošlo, 1 preskočen (Windows nema privilegiju za stvarni symlink), bez failure/error rezultata.**
 Obuhvat: manifest parsing i zaštita essential paketa, installer manifest logika, GTK/XML/SVG/XPM reference,
 filesystem staging i deploy Nova paketa, `/proc` fixture parseri za hardware/benchmark, Wine prefix putanje,
 APT source validacija, stvarni GnuPG integracioni test (generisan privremeni ključ, potpisan i proveren manifest,
@@ -45,7 +45,9 @@ odbijen drugi fingerprint, odbijen izmenjen manifest i payload). **To su provere
 | 41301661037 | 3m23s | neuspeh u `Build ISO` | Gate je odbacio `casper/` raspored: Mint 22.1 Xfce **nema** `filesystem.manifest-desktop`, već `filesystem.manifest-remove` (128 stavki) i manifest razdvojen tabom. Pročitano iz samog ISO-a (pycdlib), ispravljeno u `cfd5af9`. |
 | 41302359780 | 11m17s | neuspeh u `Build ISO` | Ceo hord prošao (purge, `nova-defaults`, UFW, `update-initramfs` na 6.8.0-147-generic, licence), pad na `umount .../rootfs/sys: target is busy`. Prvi pokušaj zaustavljanja procesa (`ff534d5`). |
 | 41303919507 | 10m22s | neuspeh u `Build ISO` | Isti umount pad, ali **bez ijednog procesa sa root-om u hordu**: uzrok nije proces nego potkačenje pod `/sys`. Skidanje sada ide od najdubljeg ka plićem preko `findmnt`, uz `fuser -vm` dijagnostiku i `umount -l` posle tri neuspele runde (`329ae0e`). |
-| 41304966852 | u toku | — | Prvi run sa ispravljenim odkačenjem. Rezultat se upisuje ovde tek po završetku. |
+| 41304966852 | 27m11s | neuspeh u `Build ISO` | Odkačenje prošlo, squashfs i manifesti gotovi. Pad na `xorriso -boot_image any replay`: „Cannot enable EL Torito boot image #1 because it is not a data file“. Iz samog ISO-a pročitan katalog (BIOS = 2 KB na LBA 4675, EFI = 5 MB na LBA 2115, **nijedan nije fajl u drvetu**) i dodata CI dijagnostika `Inspect source ISO boot layout`. Ispravka `72044cf`. |
+| 41307824091 | 29m18s | neuspeh u `Build ISO` | Oporavak flag-ova radio, ali je cela `-boot_image …` linija prosleđena kao **jedan** argument → xorriso „Not a known command“ za svaku. Pisanje slike prebačeno u `build/write-iso.py` sa `shlex.split` po liniji, uz testove nad stvarnim izveštajem (`008b962`). |
+| 41310365536 | u toku | — | Run sa ispravljenim prenosom argumenata. Rezultat se upisuje po završetku. |
 
 U sva tri neuspeha, `Verify signature and ISO hash before touching the image` i `Repository checks` su **prošli**,
 što znači da je kriptografska kapija i lokalni suite preneti u Linux okruženje bez promene ponašanja.
@@ -71,6 +73,6 @@ ISO je veći od GitHub-ovog limita od 2 GB po asset-u, pa se deli na `.part` del
 
 ## Sledeći konkretni korak
 
-Dovršiti run 41304966852, objaviti draft prerelease sa slikom, spojiti i proveriti delove, pa pokrenuti
+Dovršiti run 41310365536, objaviti draft prerelease sa slikom, spojiti i proveriti delove, pa pokrenuti
 `Boot test Nova OS image` (QEMU TCG, snimci ekrana). **Emulirani boot daje vizuelni dokaz, ne performanse.**
 Pravi 1 GB test i dalje zahteva fizički Celeron ili mašinu sa uključenim VT-x-om.
