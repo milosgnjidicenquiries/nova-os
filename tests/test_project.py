@@ -215,6 +215,28 @@ class DeliveryTests(unittest.TestCase):
             self.assertEqual(result.returncode, 1)
             self.assertEqual((Path(directory) / self.NAME).read_bytes(), b"previous")
 
+    def test_asset_list_skips_lock_and_empty_files(self):
+        # GitHub rejects a zero-byte asset with "Bad Content-Length" and aborts the
+        # whole upload, so the build lock and any empty log must never be offered.
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            self.stage(directory, b"\x00nova-build" * 1000)
+            (folder / "build.lock").write_bytes(b"")
+            (folder / "build.log").write_text("noise")
+            (folder / ".hidden").write_bytes(b"data")
+            (folder / "sub").mkdir()
+            (folder / "sub" / "inner").write_bytes(b"x")
+            result = subprocess.run([sys.executable, str(PROJECT / ".github/scripts/asset-list.py"), "--dir", directory],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            # Path ordering is case-insensitive on Windows, so compare as a set;
+            # the CI script relies on the parts sorting numerically, which they do.
+            self.assertEqual(set(result.stdout.split()), {
+                "SHA256SUMS",
+                "nova-os-0.1.0-amd64.iso.00.part",
+                "nova-os-0.1.0-amd64.iso.01.part",
+            })
+
 
 class AssetTests(unittest.TestCase):
     def test_xml_assets_parse(self):

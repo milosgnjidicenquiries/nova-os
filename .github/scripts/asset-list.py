@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 
-EXCLUDED = {"build.log", "verification.log", "packages.lock", "base.json", "repositories", "licenses"}
+EXCLUDED = {"build.log", "build.lock", "verification.log", "packages.lock", "base.json", "repositories", "licenses"}
 
 
 def main():
@@ -11,7 +11,9 @@ def main():
     parser.add_argument("--dir", type=Path, default=Path("."))
     args = parser.parse_args()
     for path in sorted(args.dir.iterdir()):
-        if path.is_file() and path.name not in EXCLUDED and not path.name.startswith("."):
+        # GitHub rejects an empty asset with "Bad Content-Length", and the build
+        # lock is an open file handle, not a deliverable.
+        if path.is_file() and path.name not in EXCLUDED and not path.name.startswith(".") and path.stat().st_size:
             print(path.name)
 
 
