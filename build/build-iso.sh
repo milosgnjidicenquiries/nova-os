@@ -216,4 +216,10 @@ python3 "$PROJECT/build/write-iso.py" --iso "$ISO" --tree "$TREE" --output "$ISO
 ( cd "$OUTPUT" && sha256sum -- "$(basename -- "$ISO_OUTPUT")" >SHA256SUMS )
 bash "$PROJECT/build/verify-iso.sh" "$ISO_OUTPUT" "$OUTPUT/SHA256SUMS" | tee "$OUTPUT/verification.log"
 printf 'Built and structurally verified: %s\n' "$ISO_OUTPUT"
-printf '%s\n' 'Boot, installation, Secure Boot, desktop performance and hardware remain untested until VM/physical QA.'
+# The build needs root; hand the artifacts back to the invoking user so later
+# non-root steps (splitting, uploading, copying) can touch them.
+if [[ -n "${SUDO_UID:-}" && -n "${SUDO_GID:-}" ]]; then
+    chown -R -- "$SUDO_UID:$SUDO_GID" "$OUTPUT"
+    printf 'Artifacts owned by %s:%s\n' "$SUDO_UID" "$SUDO_GID"
+fi
+printf '%s\n' 'Boot, installation, Secure Boot, desktop runtime and hardware remain untested until VM/physical QA.'
