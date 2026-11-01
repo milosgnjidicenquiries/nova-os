@@ -196,10 +196,13 @@ direktorijumom, a ne zbog sadržaja slike.
 Slika `nova-build-8` je spojena i proverena na Windows hostu (`_release/nova-os-0.1.0-amd64.iso`, SHA256
 `c0e848b4…01afbb`) i emulirano je viđeno kako diže do XFCE desktopa. Redosled koji preostaje:
 
-1. **UEFI emulirani boot** — prvi pokušaj (`41350074375`) stao je na GRUB meni jer konfiguracija nema timeout.
-   Ponovljeno je sa `41354005351`, koji šalje Enter na 120 s i 300 s, da se vidi da li ta stavka menija diže desktop.
-2. **Da li je crn ekran posle 10. minuta gašenje ili nešto gore** — harness sada beleži i razlog neuspelog
-   kadra; treba dodati i buđenje ekrana pre nego što se to može tvrditi.
+1. **UEFI emulirani boot** — prvi pokušaj (`41350074375`) stao je na GRUB meni jer konfiguracija nema timeout,
+   a drugi (`41354005351`) nije stigao ni do menija jer je `sendkey` išao u mrtvu monitor vezu. `41361076620`
+   je treći pokušaj, sa ispravljenom harness vezom i Enter-om na 120 s i 300 s, da se vidi da li ta stavka
+   menija diže desktop.
+2. **Da li je crn ekran posle 10. minuta gašenje ili nešto gore** — rešeno (`41357268299`): sesija preživi,
+   ekran se ugasi po DPMS-u i vrati se na taster. Preostaje samo odluka da li Nova treba da promeni taj
+   nasleđeni default; sam default je ponašanje koje ima i Windows, pa se menja samo ako korisnik traži drugačije.
 3. **USB + fizičko podizanje.** Ručno pisanje proverenim image writer-om (Rufus DD mode ili Ventoy), bez
    automatizovanog `dd`; uputstvo i provera heša su u `docs/installation-guide.md`, korak 2. Zahteva USB od 8 GB+
    koji korisnik mora fizički da priključi — na ovom hostu trenutno nema nijedan USB uređaj.
