@@ -238,6 +238,46 @@ class DeliveryTests(unittest.TestCase):
             })
 
 
+class ReleaseFetchTests(unittest.TestCase):
+    # A draft release has no git tag, so `gh release download <tag>` cannot find it;
+    # these are the real shapes the API returns for build 8.
+    RELEASES = [{"id": 430640878, "tag_name": "nova-build-7", "draft": True},
+                {"id": 430818980, "tag_name": "nova-build-8", "draft": True},
+                {"id": 430000000, "tag_name": "v1.0", "draft": False}]
+    ASSETS = [{"name": "nova-os-0.1.0-amd64.iso.01.part", "id": 3, "size": 5, "state": "uploaded"},
+              {"name": "nova-os-0.1.0-amd64.iso.00.part", "id": 1, "size": 5, "state": "uploaded"},
+              {"name": "SHA256SUMS", "id": 2, "size": 90, "state": "uploaded"},
+              {"name": "source-verification.json", "id": 4, "size": 235, "state": "uploaded"}]
+
+    def setUp(self):
+        self.fetch = load("fetch_release_assets", ".github/scripts/fetch-release-assets.py")
+
+    def test_exact_tag_and_newest_draft(self):
+        self.assertEqual(self.fetch.pick_release(self.RELEASES, "nova-build-7")["id"], 430640878)
+        self.assertEqual(self.fetch.pick_release(self.RELEASES, None)["id"], 430818980)
+
+    def test_unknown_tag_and_public_only(self):
+        with self.assertRaises(SystemExit):
+            self.fetch.pick_release(self.RELEASES, "nova-build-99")
+        with self.assertRaises(SystemExit):
+            self.fetch.pick_release([self.RELEASES[2]], None)
+
+    def test_patterns_pick_image_and_checksum_only(self):
+        chosen = self.fetch.select_assets(self.ASSETS, ["nova-os-0.1.0-amd64.iso*", "SHA256SUMS"])
+        self.assertEqual([asset["name"] for asset in chosen],
+                         ["SHA256SUMS", "nova-os-0.1.0-amd64.iso.00.part", "nova-os-0.1.0-amd64.iso.01.part"])
+
+    def test_partially_uploaded_asset_blocks_boot(self):
+        broken = [dict(asset) for asset in self.ASSETS]
+        broken[0]["state"] = "starter"
+        with self.assertRaises(SystemExit):
+            self.fetch.select_assets(broken, ["nova-os-0.1.0-amd64.iso*"])
+
+    def test_no_matching_asset_is_fatal(self):
+        with self.assertRaises(SystemExit):
+            self.fetch.select_assets(self.ASSETS, ["nothing-here*"])
+
+
 class AssetTests(unittest.TestCase):
     def test_xml_assets_parse(self):
         files = list((PROJECT / "desktop").rglob("*.xml")) + list((PROJECT / "desktop").rglob("*.svg"))

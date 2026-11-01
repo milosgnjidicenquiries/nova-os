@@ -63,28 +63,16 @@ jobs:
           RELEASE_INPUT: ${{ inputs.release_tag }}
         run: |
           set -Eeuo pipefail
-          tag="$RELEASE_INPUT"
-          if [ -z "$tag" ]; then
-            tag=$(gh api "repos/$GITHUB_REPOSITORY/releases" --jq '[.[] | select(.draft)] | .[0].tag_name // empty')
-          fi
-          test -n "$tag" || { echo "No draft release found; run Build Nova OS ISO first." >&2; exit 1; }
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          gh release view "$tag" --repo "$GITHUB_REPOSITORY"
-
-      - name: Download and reassemble the image
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -Eeuo pipefail
           mkdir -p assets
-          gh release download "${{ steps.target.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --pattern 'nova-os-0.1.0-amd64.iso*' --pattern SHA256SUMS --dir assets
-          python3 .github/scripts/join-parts.py --dir assets
-          ls -la assets
+          args=(--repo "$GITHUB_REPOSITORY" --dir assets --pattern 'nova-os-0.1.0-amd64.iso*' --pattern SHA256SUMS)
+          if [ -n "$RELEASE_INPUT" ]; then args+=(--tag "$RELEASE_INPUT"); fi
+          python3 .github/scripts/fetch-release-assets.py "${args[@]}"
 
       - name: Boot the image under TCG emulation and capture the screen
         run: |
           set -Eeuo pipefail
-          echo "Emulated boot: ${{ inputs.boot_mode }} firmware, ${{ inputs.memory_mb }} MB RAM, ${{ inputs.frames }} one-minute frames."
+          python3 .github/scripts/join-parts.py --dir assets
+          echo "Emulated boot: ${{ inputs.boot_mode }} firmware, ${{ inputs.memory_mb }} MB RAM, ${{ inputs.frames }} frames."
           python3 .github/scripts/boot-capture.py \
             --iso assets/nova-os-0.1.0-amd64.iso \
             --out boot \
@@ -97,7 +85,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: boot-${{ inputs.boot_mode }}-${{ inputs.memory_mb }}mb-${{ steps.target.outputs.tag }}
+          name: boot-${{ inputs.boot_mode }}-${{ inputs.memory_mb }}mb-${{ github.run_id }}
           path: |
             boot/
             assets/SHA256SUMS
