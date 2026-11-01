@@ -2,6 +2,20 @@
 
 **Nema izgrađenog/testiranog ISO-a u ovom projektu još.** Ovaj postupak se izvršava tek nakon uspešnog Linux build-a i provere output SHA256.
 
+## 0. Ako slika dolazi podeljena na delove (Windows)
+
+GitHub release ne prima asset veći od 2 GB, pa se Nova isporučuje kao `nova-os-0.1.0-amd64.iso.00.part`,
+`.01.part`, … uz `SHA256SUMS` i `ASSET_SHA256SUMS`. Stavite sve te fajlove u jedan prazan folder (npr.
+`C:\Downloads\nova`) i spojite ih:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\join-and-verify.ps1 -Folder "C:\Downloads\nova"
+```
+
+Skripta ne dira nijedan disk: samo čita delove i pravi novi `.iso` pored njih. Nastavite tek ako ispiše `OK:`
+sa SHA256 vrednošću. Ako ispiše da se heš ne poklapa, **nemojte pisati taj fajl na USB** — obrišite folder i
+ponovite download iz iste release stavke. Ako slika dolazi kao jedan `.iso`, isti skript je koristi samo za proveru.
+
 ## 1. VM pre fizičke instalacije
 
 Na Linux QA hostu:
