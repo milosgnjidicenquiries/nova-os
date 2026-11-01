@@ -42,7 +42,7 @@ def main():
         monitor_socket.unlink()
     command = [
         "qemu-system-x86_64", "-machine", "pc", "-cpu", "qemu64", "-smp", args.cpus, "-m", args.memory,
-        "-cdrom", str(iso), "-boot", "d", "-vga", "std", "-display", "none",
+        "-cdrom", str(iso), "-boot", "d", "-vga", "std", "-display", "none", "-no-reboot",
         "-rtc", "base=utc", "-monitor", f"unix:{monitor_socket},server,nowait",
         "-serial", f"file:{args.out / 'serial.log'}",
     ]
@@ -59,7 +59,9 @@ def main():
     frames = []
     try:
         for attempt in range(1, args.count + 1):
-            time.sleep(args.interval)
+            # The first frame is taken early so the boot loader / early console is
+            # captured even when the desktop itself needs minutes under emulation.
+            time.sleep(args.interval if attempt > 1 else min(args.interval, 25))
             if guest.poll() is not None:
                 print(f"QEMU exited early with code {guest.returncode}: {guest.stderr.read()[:2000]}", flush=True)
                 break
@@ -85,7 +87,9 @@ def main():
                 guest.kill()
     if not frames:
         raise SystemExit("No screenshot captured; the boot test produced no evidence")
-    print(f"Captured {len(frames)} frames under TCG emulation. Performance is not measurable this way.")
+    distinct = len({digest for _, digest in frames})
+    print(f"Captured {len(frames)} frames ({distinct} distinct screens) under TCG emulation. "
+          f"Performance is not measurable this way.")
 
 
 if __name__ == "__main__":
