@@ -14,15 +14,46 @@ import time
 from pathlib import Path
 
 
-def monitor(sock_path, command, settle=0.5):
+def monitor(sock_path, command, wait=10.0):
+    """Send one human-monitor command and drain the reply.
+
+    Reading a fixed byte count blocks forever (the greeting is far shorter than
+    the read), so the socket is drained with recv until it goes quiet.
+    """
+    received = []
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
-        connection.settimeout(30)
+        connection.settimeout(wait)
         connection.connect(str(sock_path))
-        stream = connection.makefile("rw", encoding="utf-8", errors="replace")
-        stream.read(4096)
-        stream.write(command + "\n")
-        stream.flush()
-        time.sleep(settle)
+        try:
+            connection.recv(65536)
+        except (socket.timeout, BlockingIOError):
+            pass
+        connection.sendall((command + "\n").encode())
+        deadline = time.time() + wait
+        while time.time() < deadline:
+            try:
+                chunk = connection.recv(65536)
+            except (socket.timeout, BlockingIOError):
+                break
+            if not chunk:
+                break
+            received.append(chunk)
+            if b"(qemu)" in chunk:
+                break
+    return b"".join(received).decode("utf-8", "replace")
+
+
+def screendump(sock_path, ppm, retries=3):
+    for attempt in range(retries):
+        try:
+            monitor(sock_path, f"screendump {ppm}", wait=5.0)
+        except OSError as error:
+            print(f"screendump attempt {attempt + 1} failed: {error}", flush=True)
+        for _ in range(20):
+            if ppm.is_file() and ppm.stat().st_size:
+                return True
+            time.sleep(0.5)
+    return False
 
 
 def main():
@@ -35,6 +66,7 @@ def main():
     parser.add_argument("--interval", type=int, default=60, help="seconds between screenshots")
     parser.add_argument("--count", type=int, default=30, help="how many screenshots to take")
     args = parser.parse_args()
+    args.out = args.out.resolve()
     args.out.mkdir(parents=True, exist_ok=True)
     iso = args.iso.resolve()
     monitor_socket = args.out / "monitor.sock"
@@ -66,9 +98,8 @@ def main():
                 print(f"QEMU exited early with code {guest.returncode}: {guest.stderr.read()[:2000]}", flush=True)
                 break
             frame = args.out / f"screen-{attempt:03d}.png"
-            ppm = frame.with_suffix(".ppm")
-            monitor(monitor_socket, f"screendump {ppm}")
-            if not ppm.is_file():
+            ppm = (args.out / f"screen-{attempt:03d}.ppm").resolve()
+            if not screendump(monitor_socket, ppm):
                 print(f"screendump produced no file at frame {attempt}", flush=True)
                 continue
             subprocess.run(["convert", str(ppm), str(frame)], check=True)
@@ -80,7 +111,10 @@ def main():
             print(f"frame {attempt:03d}: {frame.name} {frame.stat().st_size} bytes {digest} {changed}", flush=True)
     finally:
         if guest.poll() is None:
-            monitor(monitor_socket, "quit")
+            try:
+                monitor(monitor_socket, "quit", wait=5.0)
+            except OSError as error:
+                print(f"monitor quit failed: {error}", flush=True)
             try:
                 guest.wait(timeout=20)
             except subprocess.TimeoutExpired:
