@@ -1,6 +1,8 @@
 # VM, USB, instalacija i oporavak
 
-**Nema izgrađenog/testiranog ISO-a u ovom projektu još.** Ovaj postupak se izvršava tek nakon uspešnog Linux build-a i provere output SHA256.
+Izgrađen je **strukturalno proveren** ISO (draft release `nova-build-8`, 3.134.521.344 bajta, SHA256
+`c0e848b44dc14209747d5bb69386cb21b8a2bdecaa28c1ed637c73488b01afbb`). Nije još provereno da podiže, da se instalira
+ili da radi na 1 GB RAM-a — koraci ниже su zato napisani kao QA postupak, ne kao uputstvo za gotov proizvod.
 
 ## 0. Ako slika dolazi podeljena na delove (Windows)
 
