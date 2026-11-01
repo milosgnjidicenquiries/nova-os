@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.iso
+*.deb
+out/
+inputs/
+tools/
+_probe/
+*.zip
+tools/
+_probe/
+*.zip
+.nova-work.*/
+benchmark-*.json

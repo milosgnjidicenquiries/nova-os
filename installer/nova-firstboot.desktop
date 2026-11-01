@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Nova OS First Steps
+Name[sr]=Nova OS — prvi koraci
+Exec=/usr/local/bin/nova-firstboot
+OnlyShowIn=XFCE;
+Terminal=false
+X-GNOME-Autostart-enabled=true

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Nova Hardware Diagnostics
+Comment=Read-only CPU, RAM, firmware and PCI evidence in JSON
+Exec=xfce4-terminal --hold --command=/usr/local/bin/nova-hardware
+TryExec=/usr/local/bin/nova-hardware
+Icon=computer
+Terminal=false
+Categories=System;Monitor;
+StartupNotify=false

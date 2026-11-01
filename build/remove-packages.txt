@@ -1,0 +1,15 @@
+# Only these optional apps are considered; dependency simulation must be safe.
+celluloid
+hexchat
+hypnotix
+libreoffice-base
+libreoffice-calc
+libreoffice-draw
+libreoffice-impress
+libreoffice-math
+libreoffice-writer
+pix
+rhythmbox
+thunderbird
+transmission-gtk
+warpinator

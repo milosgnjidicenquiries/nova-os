@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=X-GNOME-Metatheme
+Name=Nova
+Comment=Original lightweight Nova desktop theme
+
+[X-GNOME-Metatheme]
+GtkTheme=Nova
+IconTheme=Nova
+CursorTheme=Adwaita

@@ -1,0 +1,21 @@
+{
+  "release": "Linux Mint 22.1 Xfce",
+  "version_id": "22.1",
+  "mint_suite": "xia",
+  "ubuntu_suite": "noble",
+  "architecture": "amd64",
+  "xfce_series": "4.18",
+  "kernel_track": "Ubuntu GA 6.8; stock distribution kernel, no HWE switch",
+  "support_until": "2029-04",
+  "official_minimum_ram_mb": 2048,
+  "nova_experimental_target_ram_mb": 1024,
+  "iso_filename": "linuxmint-22.1-xfce-64bit.iso",
+  "signing_key_fingerprint": "27DEB15644C6B3CF3BD7D291300F846BA25BAE09",
+  "source_date_epoch": 1736985600,
+  "sources": [
+    "https://linuxmint.com/download_all.php",
+    "https://linuxmint.com/rel_xia_xfce_whatsnew.php",
+    "https://blog.linuxmint.com/?p=4793",
+    "https://linuxmint-installation-guide.readthedocs.io/en/latest/verify.html"
+  ]
+}

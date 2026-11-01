@@ -1,0 +1,5 @@
+# Debian zram-tools reads this file as /etc/default/zramswap.
+# No fixed SIZE: derive capacity from physical memory.
+ALGO=lz4
+PERCENT=35
+PRIORITY=100

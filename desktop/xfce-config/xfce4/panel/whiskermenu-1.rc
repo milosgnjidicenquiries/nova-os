@@ -1,0 +1,11 @@
+button-title=Nova
+button-icon=nova-start
+button-single-row=true
+show-button-title=false
+show-button-icon=true
+launcher-show-name=true
+launcher-show-description=false
+launcher-show-tooltip=true
+menu-width=480
+menu-height=520
+menu-opacity=100

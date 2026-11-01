@@ -1,0 +1,119 @@
+name: Build Nova OS ISO
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_mirror:
+        description: Linux Mint image mirror base URL
+        required: true
+        default: https://mirror.fcix.net/linuxmint-images/stable/22.1
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-iso
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    env:
+      MIRROR: ${{ inputs.source_mirror }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Disk space before build
+        run: df -h "$GITHUB_WORKSPACE"
+
+      - name: Install build tools
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            bash coreutils python3 gnupg curl rsync util-linux \
+            xorriso squashfs-tools dpkg-dev initramfs-tools systemd \
+            desktop-file-utils shellcheck
+          for tool in xorriso unsquashfs mksquashfs dpkg-deb update-initramfs systemctl unshare shellcheck; do
+            command -v "$tool" >/dev/null || { echo "missing $tool"; exit 1; }
+          done
+
+      - name: Fetch pinned Linux Mint ISO signing key
+        run: |
+          set -Eeuo pipefail
+          mkdir -p inputs
+          curl -fsS --retry 3 "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x27deb15644c6b3cf3bd7d291300f846ba25bae09" \
+            -o inputs/mint-iso-signing-key.asc
+          gpg --show-keys --with-colons inputs/mint-iso-signing-key.asc | awk -F: '/^fpr/ {print $10}'
+
+      - name: Download official Mint 22.1 XFCE image and signed manifest
+        run: |
+          set -Eeuo pipefail
+          cd inputs
+          curl -fsS --retry 3 "$MIRROR/sha256sum.txt" -o sha256sum.txt
+          curl -fsS --retry 3 "$MIRROR/sha256sum.txt.gpg" -o sha256sum.txt.gpg
+          curl -fsS --retry 3 --retry-delay 5 "$MIRROR/linuxmint-22.1-xfce-64bit.iso" -o linuxmint-22.1-xfce-64bit.iso
+          ls -la
+
+      - name: Verify signature and ISO hash before touching the image
+        run: python3 build/verify-source.py --iso inputs/linuxmint-22.1-xfce-64bit.iso --checksums inputs/sha256sum.txt --signature inputs/sha256sum.txt.gpg --key inputs/mint-iso-signing-key.asc | tee source-verification.json
+
+      - name: Repository checks
+        run: |
+          set -Eeuo pipefail
+          python3 tests/run-tests.py
+          shellcheck -S warning build/build-iso.sh build/verify-iso.sh desktop/nova-theme.sh system/performance/nova-performance.sh compatibility/install-component.sh installer/nova-firstboot.sh tests/installation/run-vm.sh \
+            || echo "shellcheck reported findings (informational, not a build gate)"
+
+      - name: Build ISO
+        run: sudo bash build/build-iso.sh --iso inputs/linuxmint-22.1-xfce-64bit.iso --checksums inputs/sha256sum.txt --signature inputs/sha256sum.txt.gpg --key inputs/mint-iso-signing-key.asc --output-dir out/nova-build
+
+      - name: Report image size
+        id: result
+        run: |
+          set -Eeuo pipefail
+          cd out/nova-build
+          stat -c '%n %s bytes' nova-os-0.1.0-amd64.iso
+          cat SHA256SUMS
+          echo "iso_bytes=$(stat -c %s nova-os-0.1.0-amd64.iso)" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare release assets
+        run: |
+          set -Eeuo pipefail
+          cd out/nova-build
+          python3 "$GITHUB_WORKSPACE/.github/scripts/prepare-assets.py" --dir . --limit 1900000000
+          ls -la
+
+      - name: Upload build metadata artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-build-metadata
+          path: |
+            out/nova-build/SHA256SUMS
+            out/nova-build/ASSET_SHA256SUMS
+            out/nova-build/build.log
+            out/nova-build/verification.log
+            out/nova-build/packages.lock
+            out/nova-build/base.json
+            source-verification.json
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Publish image as draft prerelease
+        if: steps.result.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          cd out/nova-build
+          args=()
+          for file in $(python3 "$GITHUB_WORKSPACE/.github/scripts/asset-list.py" --dir .); do
+            args+=("$file")
+          done
+          gh release create "nova-build-${GITHUB_RUN_NUMBER}" \
+            --draft --prerelease \
+            --title "Nova OS 0.1.0 build ${GITHUB_RUN_NUMBER} - untested image" \
+            --notes "Automated remaster of the cryptographically verified Linux Mint 22.1 XFCE image. Boot, installation, Secure Boot and 1 GiB RAM benchmarks are NOT verified. If the image is delivered as .part files, join them in order and check ASSET_SHA256SUMS before writing to USB." \
+            "${args[@]}"

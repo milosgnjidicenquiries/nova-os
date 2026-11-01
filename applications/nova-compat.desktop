@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Nova Compatibility
+Comment=Explicit optional Windows compatibility installers and diagnostics
+Exec=/usr/local/bin/nova-compat --gui
+TryExec=/usr/local/bin/nova-compat
+Icon=applications-other
+Terminal=false
+Categories=System;Settings;
+StartupNotify=true

@@ -1,0 +1,8 @@
+/* XPM */
+static char *right_inactive[] = {
+"3 2 2 1",
+"a c #f3f5f7",
+"b c #bcc7d2",
+"aab",
+"aab"
+};

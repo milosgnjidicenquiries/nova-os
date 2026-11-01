@@ -1,0 +1,69 @@
+gtk-color-scheme = "bg_color:#252d37\nfg_color:#e6edf5\nbase_color:#1c232c\ntext_color:#e6edf5\nselected_bg_color:#306fb3\nselected_fg_color:#ffffff\ntooltip_bg_color:#e6edf5\ntooltip_fg_color:#1c232c"
+
+style "nova-default" {
+  font_name = "Sans 10"
+  xthickness = 3
+  ythickness = 3
+  fg[NORMAL] = "#e6edf5"
+  fg[PRELIGHT] = "#e6edf5"
+  fg[ACTIVE] = "#e6edf5"
+  fg[SELECTED] = "#ffffff"
+  fg[INSENSITIVE] = "#8997a8"
+  bg[NORMAL] = "#252d37"
+  bg[PRELIGHT] = "#354355"
+  bg[ACTIVE] = "#435670"
+  bg[SELECTED] = "#306fb3"
+  bg[INSENSITIVE] = "#29323e"
+  base[NORMAL] = "#1c232c"
+  base[PRELIGHT] = "#1c232c"
+  base[ACTIVE] = "#435670"
+  base[SELECTED] = "#306fb3"
+  base[INSENSITIVE] = "#29323e"
+  text[NORMAL] = "#e6edf5"
+  text[PRELIGHT] = "#e6edf5"
+  text[ACTIVE] = "#e6edf5"
+  text[SELECTED] = "#ffffff"
+  text[INSENSITIVE] = "#8997a8"
+  GtkWidget::focus-line-width = 1
+  GtkWidget::focus-padding = 2
+  GtkButton::default-border = { 0, 0, 0, 0 }
+  GtkButton::inner-border = { 4, 4, 2, 2 }
+  GtkButton::child-displacement-x = 0
+  GtkButton::child-displacement-y = 0
+  GtkEntry::inner-border = { 4, 4, 3, 3 }
+  GtkRange::trough-border = 1
+  GtkRange::slider-width = 12
+  GtkRange::stepper-size = 0
+  GtkScrollbar::min-slider-length = 32
+  GtkScrollbar::has-backward-stepper = 0
+  GtkScrollbar::has-forward-stepper = 0
+  GtkCheckButton::indicator-size = 16
+  GtkCheckButton::indicator-spacing = 4
+  GtkMenu::horizontal-padding = 4
+  GtkMenu::vertical-padding = 4
+  GtkTreeView::horizontal-separator = 4
+  GtkTreeView::vertical-separator = 4
+}
+class "*" style "nova-default"
+
+style "nova-menu" = "nova-default" {
+  xthickness = 2
+  ythickness = 3
+  bg[NORMAL] = "#1c232c"
+  bg[PRELIGHT] = "#306fb3"
+  fg[PRELIGHT] = "#ffffff"
+}
+widget_class "*<GtkMenu>*" style "nova-menu"
+
+style "nova-tooltip" = "nova-default" {
+  bg[NORMAL] = "#e6edf5"
+  fg[NORMAL] = "#1c232c"
+}
+widget "gtk-tooltip*" style "nova-tooltip"
+
+style "nova-panel" = "nova-default" {
+  xthickness = 1
+  ythickness = 1
+}
+widget "*PanelWidget*" style "nova-panel"
+widget "*PanelApplet*" style "nova-panel"

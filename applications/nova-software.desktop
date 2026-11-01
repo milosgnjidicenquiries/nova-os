@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Nova Software
+Comment=Open the existing Linux Mint Software Manager when installed
+Exec=mintinstall
+TryExec=mintinstall
+Icon=system-software-install
+Terminal=false
+Categories=System;PackageManager;
+StartupNotify=true
