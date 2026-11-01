@@ -47,10 +47,44 @@ odbijen drugi fingerprint, odbijen izmenjen manifest i payload). **To su provere
 | 41303919507 | 10m22s | neuspeh u `Build ISO` | Isti umount pad, ali **bez ijednog procesa sa root-om u hordu**: uzrok nije proces nego potkačenje pod `/sys`. Skidanje sada ide od najdubljeg ka plićem preko `findmnt`, uz `fuser -vm` dijagnostiku i `umount -l` posle tri neuspele runde (`329ae0e`). |
 | 41304966852 | 27m11s | neuspeh u `Build ISO` | Odkačenje prošlo, squashfs i manifesti gotovi. Pad na `xorriso -boot_image any replay`: „Cannot enable EL Torito boot image #1 because it is not a data file“. Iz samog ISO-a pročitan katalog (BIOS = 2 KB na LBA 4675, EFI = 5 MB na LBA 2115, **nijedan nije fajl u drvetu**) i dodata CI dijagnostika `Inspect source ISO boot layout`. Ispravka `72044cf`. |
 | 41307824091 | 29m18s | neuspeh u `Build ISO` | Oporavak flag-ova radio, ali je cela `-boot_image …` linija prosleđena kao **jedan** argument → xorriso „Not a known command“ za svaku. Pisanje slike prebačeno u `build/write-iso.py` sa `shlex.split` po liniji, uz testove nad stvarnim izveštajem (`008b962`). |
-| 41310365536 | u toku | — | Run sa ispravljenim prenosom argumenata. Rezultat se upisuje po završetku. |
+| 41310365536 | 29m41s | neuspeh u `Prepare release assets` | **`Build ISO` je prošao do kraja** i napravio stvarnu sliku (detalji dole). Pad na `split: … .part: Permission denied` — `out/nova-build` je napravio `sudo`, pa je ostao root-ov, a korak deljenja radi kao običan korisnik i nije smeo da piše u direktijum. |
+| 41314409340 | u toku | — | Ispravka `b0dabce`: `build-iso.sh` na kraju vraća vlasništvo nad output-om na `SUDO_UID:SUDO_GID`. Cilj run-a je draft prerelease sa `.part` delovima. |
 
-U sva tri neuspeha, `Verify signature and ISO hash before touching the image` i `Repository checks` su **prošli**,
-što znači da je kriptografska kapija i lokalni suite preneti u Linux okruženje bez promene ponašanja.
+## Šta run 41310365536 dokazuje o samoj slici
+
+Korak `Build ISO` je prvi put prošao **celu** putanju i napravio stvarni fajl:
+
+- `out/nova-build/nova-os-0.1.0-amd64.iso` = **3.134.521.344 bajta**, SHA256
+  `ee5fa2d631d32ed562eb4507118221824b1c0ea309cbe3d982bee2b42b0470f6`.
+- `xorriso` je iz izvorne slike vratio i primenio njene sopstvene boot komade (`system_area` sa
+  `zero_mbrpt,zero_gpt,zero_apm`, `partition_offset=16`, `cat_path=/isolinux/boot.cat`,
+  `bin_path=/isolinux/isolinux.bin`, `efi_path=/boot/grub/efi.img`, `load_size=5242880`) umesto izmišljenih flag-ova.
+- `verify-iso.sh` je nad **napravljenom** slikom potvrdio El Torito katalog sa **dve** boot slike —
+  BIOS (4 sektora, `/isolinux/isolinux.bin`, boot-info-table/isohybrid) i UEFI (10.240 sektora,
+  `/boot/grub/efi.img`) — plus squashfs payload, `filesystem.manifest`, `nova-defaults`, `casper` i `ubiquity`
+  u manifestu i lokalni SHA256 (`SHA256: OK`).
+- `update-initramfs` je generisao `initrd.img-6.8.0-147-generic` unutar horda; jedina napomena je
+  `cryptsetup: WARNING: Couldn't determine root device`, očekivana za live medij bez kriptovane root particije.
+
+U svih šest run-ova, `Verify signature and ISO hash before touching the image` i `Repository checks` su **prošli**,
+što znači da je kriptografska kapija i lokalni suite preneti u Linux okruženje bez promene ponašanja. Run 6
+(41310365536) je prvi put prošao i ceo `Build ISO`; pao je tek na `Prepare release assets` zbog vlasništva nad
+direktorijumom, a ne zbog sadržaja slike.
+
+## Nije izvršeno
+
+- **Podizanje Nova slike** — BIOS, UEFI, Secure Boot, live sesija, LightDM, XFCE/GTK runtime, Nova tema u realnom desktop-u. Strukturalna provera medija NIJE test boot-a.
+- Instalacija na HDD/SSD, particionisanje, disk-only reboot, rollback.
+- Merenja na 1/2/4 GB RAM-a, CPU, Wi-Fi, audio, USB, suspend, stvarni Wine/Steam/Bottles.
+- Pravni pregled redistribucije (`licenses/inventory.csv` nosi `redistribution_review=pending`).
+- Bit-identična reproducibilnost (nije cilj koji je dostignut; skriptovan remaster ≠ reproducible-build sertifikacija).
+
+## Sledeći konkretni korak
+
+Run 7 (41314409340) sa ispravljenim vlasništvom (`b0dabce`) treba da objavi draft prerelease sa `.part`
+delovima + `SHA256SUMS`. Pošto se delovi spoje i provere lokalno (`scripts/join-and-verify.ps1`), slika je
+spremna za USB; zatim se pokreće `Boot test Nova OS image` (QEMU TCG, snimci ekrana). **Emulirani boot daje
+vizuelni dokaz, ne performanse.** Pravi 1 GB test i dalje zahteva fizički Celeron ili mašinu sa uključenim VT-x-om.
 
 ## Isporučni put (spajanje delova)
 
@@ -62,17 +96,3 @@ ISO je veći od GitHub-ovog limita od 2 GB po asset-u, pa se deli na `.part` del
   porukom da se slika ne sme pisati na USB.
 - `.github/scripts/join-parts.py --dir …` → spojeno 10.485.760 bajta, SHA256 identičan originalu.
   To je isti mehanizam koji `Boot test Nova OS image` koristi pre podizanja.
-
-## Nije izvršeno
-
-- **Podizanje bilo koje slike** — BIOS, UEFI, Secure Boot, live sesija, LightDM, XFCE/GTK runtime, Nova tema u realnom desktop-u.
-- Instalacija na HDD/SSD, particionisanje, disk-only reboot, rollback.
-- Merenja na 1/2/4 GB RAM-a, CPU, Wi-Fi, audio, USB, suspend, stvarni Wine/Steam/Bottles.
-- Pravni pregled redistribucije (`licenses/inventory.csv` nosi `redistribution_review=pending`).
-- Bit-identična reproducibilnost (nije cilj koji je dostignut; skriptovan remaster ≠ reproducible-build sertifikacija).
-
-## Sledeći konkretni korak
-
-Dovršiti run 41310365536, objaviti draft prerelease sa slikom, spojiti i proveriti delove, pa pokrenuti
-`Boot test Nova OS image` (QEMU TCG, snimci ekrana). **Emulirani boot daje vizuelni dokaz, ne performanse.**
-Pravi 1 GB test i dalje zahteva fizički Celeron ili mašinu sa uključenim VT-x-om.
