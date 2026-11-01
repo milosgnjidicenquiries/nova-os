@@ -2,8 +2,9 @@
 
 ## Isporuka i granica tvrdnje
 
-Isporučen je izvorni razvojni projekat sa CI build pipeline-om. **Nije potvrđeno da Nova OS podiže, da se instalira
-ili da radi sa 1 GB RAM-a.** Nijedan taj korak nije izvršen, a ovaj izveštaj razdvaja ono što je stvarno provereno
+Isporučen je izvorni razvojni projekat sa CI build pipeline-om **i jedna stvarno izgrađena, strukturalno proverena
+slika** (draft release `nova-build-8`, 3.134.521.344 bajta). **Nije potvrđeno da Nova OS podiže, da se instalira
+ili da radi sa 1 GB RAM-a.** Nijedan taj korak nije završen, a ovaj izveštaj razdvaja ono što je stvarno provereno
 od onoga što tek čeka.
 
 ## Okruženja
@@ -49,7 +50,16 @@ odbijen drugi fingerprint, odbijen izmenjen manifest i payload). **To su provere
 | 41307824091 | 29m18s | neuspeh u `Build ISO` | Oporavak flag-ova radio, ali je cela `-boot_image …` linija prosleđena kao **jedan** argument → xorriso „Not a known command“ za svaku. Pisanje slike prebačeno u `build/write-iso.py` sa `shlex.split` po liniji, uz testove nad stvarnim izveštajem (`008b962`). |
 | 41310365536 | 29m41s | neuspeh u `Prepare release assets` | **`Build ISO` je prošao do kraja** i napravio stvarnu sliku (detalji dole). Pad na `split: … .part: Permission denied` — `out/nova-build` je napravio `sudo`, pa je ostao root-ov, a korak deljenja radi kao običan korisnik i nije smeo da piše u direktijum. Ispravka `b0dabce`: `build-iso.sh` vraća vlasništvo nad output-om na `SUDO_UID:SUDO_GID`. |
 | 41314409340 | 30m6s | neuspeh u `Publish image as draft prerelease` | Build, `split`, `Upload build metadata artifact` — **sve prošlo**. `gh release create` pao na `HTTP 400: Bad Content-Length` za asset `build.lock`: `asset-list.py` je ponudio i zaključni fajl veličine 0 bajta, GitHub odbija prazan asset i ceo upload staje (delovi su ostali u `starter` stanju, bez sadržaja). Ispravka: `asset-list.py` preskače `build.lock` i svaki fajl nula bajtova, uz test `test_asset_list_skips_lock_and_empty_files`. |
-| 41340768775 | u toku | — | Run sa oba filtra; tekstualni izveštaj se dopunjuje po završetku. |
+| 41340768775 | 39m45s | **sve prošlé** | Build, `split`, metadata artifact i `Publish image as draft prerelease` — svi koraci zeleno. Draft release **`nova-build-8`**: `nova-os-0.1.0-amd64.iso.00.part` (1.900.000.000 B), `.01.part` (1.234.521.344 B), `SHA256SUMS`, `ASSET_SHA256SUMS`, `source-verification.json`. Zbir delova = 3.134.521.344 B, isto kao `Report image size`. |
+| 41344185706 | — | neuspeh u `Resolve the image release` (boot test) | `gh release download <tag>` i `gh api releases/tags/<tag>` **ne vide draft release** bez git tag-a; prvi pokus boot testa tako i pade. Zamenjeno sa `.github/scripts/fetch-release-assets.py` (release ID + asset ID preko API-ja, odbija asset u `starter` stanju). |
+| 41344663028 | 2m0s | neuspeh u `Resolve the image release` | Ispravka iznad nije bila dovoljna: **Actions token sa `contents: read` uopšte ne vidi draft release-ove**. `boot-test.yml` sada traži `contents: write` i ispisuje šta mu je API vratio kad tag nedostaje. |
+| 41345007667 | u toku | — | QEMU TCG boot sa 30 kadrova; rezultat se dopisuje po završetku. |
+
+### Slike između run-ova nisu identične
+
+Run 6 je dao SHA256 `ee5fa2d631d32ed562eb4507118221824b1c0ea309cbe3d982bee2b42b0470f6`, run 8 `c0e848b44dc14209747d5bb69386cb21b8a2bdecaa28c1ed637c73488b01afbb`. Razlika je očekivana i dokazuje da pipeline **nije** bit-reproducible: `apt upgrade` unutar horda uzima aktuelne pakete u trenutku build-a, a `SOURCE_DATE_EPOCH` samo normalizuje timestamp-ove i squashfs metabaze. Reproducibilnost zahteva fiksiranje celog APT snapshot-a, što ovaj projekat ne tvrdi.
+
+`ASSET_SHA256SUMS` iz run 8 nosi `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` za `build.lock` — heš praznog sadržaja, tj. upravo taj fajl nula bajta koji je GitHub odbio kao asset u run 7.
 
 ## Šta run 41310365536 dokazuje o samoj slici
 
