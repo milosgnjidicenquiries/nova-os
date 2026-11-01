@@ -24,7 +24,10 @@ def main():
     if size > args.limit:
         subprocess.run(["split", "-b", str(args.limit), "-d", "--additional-suffix=.part",
                         str(iso), str(iso) + "."], check=True)
-        print(f"Splitted {size} bytes into {args.limit}-byte parts")
+        # GitHub caps one release asset at 2 GB; the parts are the deliverable and the
+        # joined image is checked against the digest already recorded in SHA256SUMS.
+        iso.unlink()
+        print(f"Splitted {size} bytes into {args.limit}-byte parts and removed the oversized single asset")
     else:
         print(f"Image fits one asset: {size} bytes")
     assets = [path.name for path in sorted(args.dir.iterdir())

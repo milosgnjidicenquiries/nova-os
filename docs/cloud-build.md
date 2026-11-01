@@ -7,16 +7,20 @@ ubuntu-24.04 virtuelna mašina sa root pristupom; tvoj laptop se ne menja.
 
 `.github/workflows/build-iso.yml` (ručno se pokreće: Actions → Build Nova OS ISO → Run workflow):
 
-1. Instalira gradivne alate (`xorriso`, `squashfs-tools`, `dpkg-dev`, `initramfs-tools`, `systemd`, `shellcheck`).
-2. Dohvata javni Linux Mint ISO signing key i ispisuje njegov fingerprint.
-3. Preuzima `linuxmint-22.1-xfce-64bit.iso`, `sha256sum.txt` i `sha256sum.txt.gpg` sa zvaničnog mirrora.
-4. `build/verify-source.py` kriptografski proverava potpis manifiesta i poredi SHA256 ISO-a sa fingerprintom
+1. Očisti nepotrebne alate na runneru (dotnet, Android SDK, CodeQL, Docker keš) jer remaster u hordu treba
+   oko 18–20 GB radnog prostora.
+2. Instalira gradivne alate (`xorriso`, `squashfs-tools`, `dpkg-dev`, `initramfs-tools`, `systemd`, `shellcheck`).
+3. Dohvata javni Linux Mint ISO signing key i ispisuje njegov fingerprint.
+4. Preuzima `linuxmint-22.1-xfce-64bit.iso`, `sha256sum.txt` i `sha256sum.txt.gpg` sa zvaničnog mirrora.
+5. `build/verify-source.py` kriptografski proverava potpis manifiesta i poredi SHA256 ISO-a sa fingerprintom
    zaključanim u `build/base.json`. Ako bilo šta ne prođe, build staje pre diranja slike.
-5. Pokreće `tests/run-tests.py` i informativni `shellcheck`.
-6. `sudo bash build/build-iso.sh` radi remaster u privatnom mount namespace-u, pa `build/verify-iso.sh`
+6. Pokreće `tests/run-tests.py` i informativni `shellcheck`.
+7. `sudo bash build/build-iso.sh` radi remaster u privatnom mount namespace-u, pa `build/verify-iso.sh`
    proverava strukturu (checksum, squashfs, casper/Ubiquity manifest, BIOS i UEFI El Torito unose).
-7. Objavljuje **draft prerelease**: `nova-os-0.1.0-amd64.iso` (kao ceo fajl ako je ispod 2 GB, ili `.part`
-   delovi uz `ASSET_SHA256SUMS`), plus logove, `packages.lock` i `SHA256SUMS`.
+   U hordu se privremeno koristi samo rutabilni DNS; `resolv.conf` se posle vraća kakav je bio u bazi.
+8. Objavljuje **draft prerelease**: `nova-os-0.1.0-amd64.iso` kao ceo fajl ako je ispod 2 GB, a ako nije —
+   samo `.part` delovi uz `ASSET_SHA256SUMS` (GitHub ne prima asset veći od 2 GB), plus logove,
+   `packages.lock`, `base.json` i `SHA256SUMS`.
 
 ## Preuzimanje i sastavljanje
 

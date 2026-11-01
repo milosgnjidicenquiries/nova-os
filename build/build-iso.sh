@@ -91,9 +91,26 @@ if release.get('ID') != 'linuxmint' or release.get('VERSION_ID') != expected['ve
     raise SystemExit('Source release does not match pinned base; no cross-release package mixing allowed')
 PY
 chroot "$ROOT" dpkg --print-architecture | python3 -c 'import sys; assert sys.stdin.read().strip() == "amd64", "Expected amd64"'
-cp -a "$ROOT/etc/resolv.conf" "$WORK/resolv.conf.original"
+if [[ -e "$ROOT/etc/resolv.conf" ]]; then
+    cp -a "$ROOT/etc/resolv.conf" "$WORK/resolv.conf.original"
+fi
 rm -f -- "$ROOT/etc/resolv.conf"
+# A loopback stub resolver is unreachable from the chroot, so keep only routable nameservers.
 cp -L /etc/resolv.conf "$ROOT/etc/resolv.conf"
+python3 - "$ROOT/etc/resolv.conf" <<'PY'
+import re, sys
+from pathlib import Path
+target = Path(sys.argv[1])
+servers = []
+if target.is_file():
+    for line in target.read_text(errors='replace').splitlines():
+        match = re.fullmatch(r'\s*nameserver\s+(\S+)', line)
+        if match and not (match[1].startswith('127.') or match[1] in ('::1', '0.0.0.0')):
+            servers.append(match[1])
+if not servers:
+    servers = ['1.1.1.1', '9.9.9.9']
+target.write_text(''.join('nameserver %s\n' % s for s in servers))
+PY
 if [[ -e "$ROOT/usr/sbin/policy-rc.d" ]]; then
     cp -a "$ROOT/usr/sbin/policy-rc.d" "$WORK/policy-rc.d.original"
 fi
@@ -132,9 +149,12 @@ mkdir -p "$OUTPUT/repositories"
 cp -a "$ROOT/etc/apt/sources.list.d" "$OUTPUT/repositories/"
 [[ ! -f "$ROOT/etc/apt/sources.list" ]] || cp -a "$ROOT/etc/apt/sources.list" "$OUTPUT/repositories/"
 cp "$PROJECT/build/base.json" "$OUTPUT/base.json"
-cp -a "$WORK/resolv.conf.original" "$WORK/resolv.conf.restore"
-rm -f -- "$ROOT/etc/resolv.conf"
-cp -a "$WORK/resolv.conf.restore" "$ROOT/etc/resolv.conf"
+if [[ -e "$WORK/resolv.conf.original" || -L "$WORK/resolv.conf.original" ]]; then
+    rm -f -- "$ROOT/etc/resolv.conf"
+    cp -a "$WORK/resolv.conf.original" "$ROOT/etc/resolv.conf"
+else
+    rm -f -- "$ROOT/etc/resolv.conf"
+fi
 if [[ -e "$WORK/policy-rc.d.original" ]]; then
     cp -a "$WORK/policy-rc.d.original" "$ROOT/usr/sbin/policy-rc.d"
 else
@@ -148,7 +168,7 @@ python3 "$PROJECT/build/finalize-tree.py" "$TREE" "$ROOT" --epoch "$EPOCH" --com
 ISO_OUTPUT=$OUTPUT/nova-os-0.1.0-amd64.iso
 # Replay original system area and El Torito entries instead of inventing bootloader flags.
 xorriso -indev "$ISO" -outdev "$ISO_OUTPUT" -map "$TREE" / -boot_image any replay -volid NOVA_OS_0_1 -commit -end
-sha256sum "$ISO_OUTPUT" >"$OUTPUT/SHA256SUMS"
+( cd "$OUTPUT" && sha256sum -- "$(basename -- "$ISO_OUTPUT")" >SHA256SUMS )
 bash "$PROJECT/build/verify-iso.sh" "$ISO_OUTPUT" "$OUTPUT/SHA256SUMS" | tee "$OUTPUT/verification.log"
 printf 'Built and structurally verified: %s\n' "$ISO_OUTPUT"
 printf '%s\n' 'Boot, installation, Secure Boot, desktop performance and hardware remain untested until VM/physical QA.'
