@@ -1,8 +1,10 @@
 import importlib.util
+import hashlib
 import json
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
@@ -133,6 +135,43 @@ class ManifestTests(unittest.TestCase):
             path = Path(directory) / "lock"
             path.write_text("# lock\nfirefox=1.0\nlibc6:amd64=2.0\n")
             self.assertEqual(lock.entries(path), {"firefox": "1.0", "libc6:amd64": "2.0"})
+
+
+class DeliveryTests(unittest.TestCase):
+    NAME = "nova-os-0.1.0-amd64.iso"
+
+    def stage(self, directory, payload, corrupt=False):
+        folder = Path(directory)
+        (folder / "SHA256SUMS").write_text(hashlib.sha256(payload).hexdigest() + "  " + self.NAME + "\n")
+        chunks = [payload[:5000], payload[5000:]]
+        for index, chunk in enumerate(chunks):
+            if corrupt and index == 0:
+                chunk = bytes([chunk[0] ^ 0xFF]) + chunk[1:]
+            (folder / f"{self.NAME}.{index:02d}.part").write_bytes(chunk)
+        return folder
+
+    def test_join_reassembles_and_verifies(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload = b"\x00nova-build" * 1000
+            self.stage(directory, payload)
+            result = subprocess.run([sys.executable, str(PROJECT / ".github/scripts/join-parts.py"), "--dir", directory], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual((Path(directory) / self.NAME).read_bytes(), payload)
+
+    def test_join_rejects_corrupted_part(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.stage(directory, b"\x00nova-build" * 1000, corrupt=True)
+            result = subprocess.run([sys.executable, str(PROJECT / ".github/scripts/join-parts.py"), "--dir", directory], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("Checksum mismatch", result.stderr)
+
+    def test_join_refuses_to_overwrite(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.stage(directory, b"\x00nova-build" * 1000)
+            (Path(directory) / self.NAME).write_bytes(b"previous")
+            result = subprocess.run([sys.executable, str(PROJECT / ".github/scripts/join-parts.py"), "--dir", directory], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual((Path(directory) / self.NAME).read_bytes(), b"previous")
 
 
 class AssetTests(unittest.TestCase):

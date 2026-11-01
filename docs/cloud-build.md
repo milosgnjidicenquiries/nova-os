@@ -32,6 +32,21 @@ powershell -ExecutionPolicy Bypass -File scripts\join-and-verify.ps1 -Folder "C:
 Skripta spoji `.part` delove u ispravnom redosledu i poredi SHA256 sa `SHA256SUMS`. Bez poklapanja nemoj
 pisati sliku na USB.
 
+## Boot test i snimci ekrana
+
+Kada draft prerelease postoji, Actions → **Boot test Nova OS image** → Run workflow (opciono tag release-a,
+RAM gosta u MB, `bios`/`uefi`, broj kadrova). Job sam:
+
+1. skine ISO ili `.part` delove sa release-a i spoji ih preko `.github/scripts/join-parts.py`, uz obavezan SHA256
+   poklapanje sa `SHA256SUMS` (pogrešna slika se ne podiže);
+2. podigne sliku u `qemu-system-x86_64` **bez KVM-a**, dakle TCG emulacija, headless, sa monitor socket-om;
+3. jednom u minutu šalje `screendump` i čuva PNG kadrove, plus `serial.log`, kao artefakt
+   `boot-<mode>-<ram>mb-<tag>`.
+
+**Šta to dokazuje:** da li slika prolazi bootloader/kernel/live sesiju i kako desktop izgleda.
+**Šta ne dokazuje:** brzinu podizanja, potrošnju RAM-a, drajvere, instalaciju i Secure Boot. QEMU `qemu64` CPU nije
+Celeron iz 2008, a TCG vreme nema veze sa realnim vremenom. Zato se iz artefakta ne citira nijedan broj.
+
 ## Ograničenja
 
 - Kvarke minuta: private repo ima mesečnu kvotu (Free plan 2.000 minuta); jedan build tipično 30–90 minuta.
