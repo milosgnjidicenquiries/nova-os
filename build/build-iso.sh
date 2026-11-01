@@ -212,8 +212,17 @@ EPOCH=${SOURCE_DATE_EPOCH:-$(python3 -c 'import json,sys; print(json.load(open(s
 [[ "$EPOCH" =~ ^[0-9]+$ ]] || { printf '%s\n' 'Invalid SOURCE_DATE_EPOCH'; exit 1; }
 python3 "$PROJECT/build/finalize-tree.py" "$TREE" "$ROOT" --epoch "$EPOCH" --comp "$COMP"
 ISO_OUTPUT=$OUTPUT/nova-os-0.1.0-amd64.iso
-# Replay original system area and El Torito entries instead of inventing bootloader flags.
-xorriso -indev "$ISO" -outdev "$ISO_OUTPUT" -map "$TREE" / -boot_image any replay -volid NOVA_OS_0_1 -commit -end
+# "-boot_image any replay" fails on Mint 22.1: its BIOS El Torito entry has no ISO9660 path
+# (catalog LBA 4675), so xorriso rejects it as "not a data file in the ISO filesystem".
+# Ask the source image for its own mkisofs-style boot commands and apply those instead.
+BOOT_REPORT=$(xorriso -indev "$ISO" -report_el_torito cmd 2>/dev/null)
+mapfile -t BOOTFLAGS < <(printf '%s\n' "$BOOT_REPORT" | grep -E '^-boot_image ')
+((${#BOOTFLAGS[@]})) || { printf '%s\n' 'No boot commands recovered from the source ISO'; exit 1; }
+for required in system_area= cat_path= bin_path= efi_path=; do
+    printf '%s\n' "${BOOTFLAGS[@]}" | grep -q -- "$required" || { printf 'Missing %s in source boot report\n' "$required"; exit 1; }
+done
+printf 'Boot commands recovered from the source image:\n%s\n' "${BOOTFLAGS[@]}"
+xorriso -indev "$ISO" -outdev "$ISO_OUTPUT" -map "$TREE" / -volid NOVAOS010 "${BOOTFLAGS[@]}" -commit -end
 ( cd "$OUTPUT" && sha256sum -- "$(basename -- "$ISO_OUTPUT")" >SHA256SUMS )
 bash "$PROJECT/build/verify-iso.sh" "$ISO_OUTPUT" "$OUTPUT/SHA256SUMS" | tee "$OUTPUT/verification.log"
 printf 'Built and structurally verified: %s\n' "$ISO_OUTPUT"
