@@ -53,7 +53,18 @@ odbijen drugi fingerprint, odbijen izmenjen manifest i payload). **To su provere
 | 41340768775 | 39m45s | **sve prošlé** | Build, `split`, metadata artifact i `Publish image as draft prerelease` — svi koraci zeleno. Draft release **`nova-build-8`**: `nova-os-0.1.0-amd64.iso.00.part` (1.900.000.000 B), `.01.part` (1.234.521.344 B), `SHA256SUMS`, `ASSET_SHA256SUMS`, `source-verification.json`. Zbir delova = 3.134.521.344 B, isto kao `Report image size`. |
 | 41344185706 | — | neuspeh u `Resolve the image release` (boot test) | `gh release download <tag>` i `gh api releases/tags/<tag>` **ne vide draft release** bez git tag-a; prvi pokus boot testa tako i pade. Zamenjeno sa `.github/scripts/fetch-release-assets.py` (release ID + asset ID preko API-ja, odbija asset u `starter` stanju). |
 | 41344663028 | 2m0s | neuspeh u `Resolve the image release` | Ispravka iznad nije bila dovoljna: **Actions token sa `contents: read` uopšte ne vidi draft release-ove**. `boot-test.yml` sada traži `contents: write` i ispisuje šta mu je API vratio kad tag nedostaje. |
-| 41345007667 | u toku | — | QEMU TCG boot sa 30 kadrova; rezultat se dopisuje po završetku. |
+| 41345007667 | 4m24s | neuspeh u boot koraku | `join-parts.py` spojio 2 dela i potvrdio SHA256, ali QEMU monitor kod je blokirao na `stream.read(4096)` (dočekuje 4096 bajtova, a pozdrav je kraći) → `TimeoutError`, nijedan kadar. `serial.log` je **prazan** jer Mint koristi `quiet splash` bez `console=ttyS0`, pa je screendump jedini kanal. Ispravka: `recv` sa istekom + ponavljanje (`boot-capture.py`). |
+| 41345675650 | 47m | **boot dokazan** | BIOS/TCG, `-m 4096`, 2 vCPU. Kadrovi: splash tokom podizanja (~25 s), pa **živ XFCE desktop** sa panelom, satom 20:23 → 20:25 kroz uzastopne kadrove, i Nova dobrodošlicom otvorenom iz `/usr/share/nova/welcome.html`. Snimci su u `docs/evidence/boot-bios-4096mb-run41345675650/`. |
+
+## Emulirani boot — šta je viđen, a šta nije
+
+Videno na snimcima slike `nova-build-8`: izolinux → kernel → casper → LightDM → XFCE sesija; donja traka sa
+Nova launcherima; prozor Firefox-a sa lokalnom Nova dobrodošlicom (srpski sadržaj, upozorenje o brisanju diska i
+1 GB limitu); sat napreduje između kadrova 6 i 8, dakle sesija radi, ne miruje.
+
+Nije videno i ne tvrdi se: instalacija na disk, ponašanje pri restartu sa diska, Secure Boot, UEFI putanja
+(ovaj run je BIOS režim), izgled Nove GTK/treme u punom obimu, i bilo kakve performanse — TCG emulacija bez KVM-a
+meri brzinu hosta, ne Celerona. Vreme do desktopa (~6 min) **nije** broj koji sme da se citira kao performansa.
 
 ### Slike između run-ova nisu identične
 
@@ -84,7 +95,8 @@ direktorijumom, a ne zbog sadržaja slike.
 
 ## Nije izvršeno
 
-- **Podizanje Nova slike** — BIOS, UEFI, Secure Boot, live sesija, LightDM, XFCE/GTK runtime, Nova tema u realnom desktop-u. Strukturalna provera medija NIJE test boot-a.
+- **Podizanje na pravom mediju i hardveru:** UEFI i Secure Boot putanje, fizička mašina, USB stik, BIOS boot na
+  hardveru. Emulirani BIOS boot do XFCE desktopa je **viđen** (gore), ali to nije dokaz o platformi.
 - Instalacija na HDD/SSD, particionisanje, disk-only reboot, rollback.
 - Merenja na 1/2/4 GB RAM-a, CPU, Wi-Fi, audio, USB, suspend, stvarni Wine/Steam/Bottles.
 - Pravni pregled redistribucije (`licenses/inventory.csv` nosi `redistribution_review=pending`).
@@ -92,10 +104,14 @@ direktorijumom, a ne zbog sadržaja slike.
 
 ## Sledeći konkretni korak
 
-Run 7 (41314409340) sa ispravljenim vlasništvom (`b0dabce`) treba da objavi draft prerelease sa `.part`
-delovima + `SHA256SUMS`. Pošto se delovi spoje i provere lokalno (`scripts/join-and-verify.ps1`), slika je
-spremna za USB; zatim se pokreće `Boot test Nova OS image` (QEMU TCG, snimci ekrana). **Emulirani boot daje
-vizuelni dokaz, ne performanse.** Pravi 1 GB test i dalje zahteva fizički Celeron ili mašinu sa uključenim VT-x-om.
+Slika `nova-build-8` je spojena i proverena na Windows hostu (`_release/nova-os-0.1.0-amd64.iso`, SHA256
+`c0e848b4…01afbb`) i emulirano je viđeno kako diže do XFCE desktopa. Redosled koji preostaje:
+
+1. **UEFI emulirani boot** (`boot-test.yml`, `boot_mode=uefi`) — BIOS putanja je dokazana, UEFI još nije.
+2. **USB + fizičko podizanje.** Ručno pisanje proverenim image writer-om (Rufus/Ventoy), bez automatizovanog `dd`.
+3. **Instalacija na testni disk** i proverа reboot-a sa diska, pa tek onda `nova-hardware` i benchmark na 1 GB.
+
+Performanse se i dalje ne mere emulacijom; pravi 1 GB test traži fizički Celeron ili mašinu sa uključenim VT-x-om.
 
 ## Isporučni put (spajanje delova)
 
