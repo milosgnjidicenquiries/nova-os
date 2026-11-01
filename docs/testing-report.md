@@ -3,9 +3,10 @@
 ## Isporuka i granica tvrdnje
 
 Isporučen je izvorni razvojni projekat sa CI build pipeline-om **i jedna stvarno izgrađena, strukturalno proverena
-slika** (draft release `nova-build-8`, 3.134.521.344 bajta). **Nije potvrđeno da Nova OS podiže, da se instalira
-ili da radi sa 1 GB RAM-a.** Nijedan taj korak nije završen, a ovaj izveštaj razdvaja ono što je stvarno provereno
-od onoga što tek čeka.
+slika** (draft release `nova-build-8`, 3.134.521.344 bajta). Slika **podiže do live XFCE desktopa** — viđeno na
+snimcima ekrana u emulaciji (Legacy BIOS, 4 GB). **Nije potvrđeno** da se instalira, da radi sa 1 GB RAM-a, ni da
+UEFI putanja dođe do desktopa (GRUB meni pod UEFI-jem jeste viđen, desktop još ne). Nijedan taj korak nije
+završen, a ovaj izveštaj razdvaja ono što je stvarno provereno od onoga što tek čeka.
 
 ## Okruženja
 
@@ -33,7 +34,7 @@ sa `keyserver.ubuntu.com`: ista vrednost. Ako bi se promenio, build staje.
 py -3 tests/run-tests.py
 ```
 
-**82 testa, 81 prošlo, 1 preskočen (Windows nema privilegiju za stvarni symlink), bez failure/error rezultata.**
+**88 testova, 87 prošlo, 1 preskočen (Windows nema privilegiju za stvarni symlink), bez failure/error rezultata.**
 Obuhvat: manifest parsing i zaštita essential paketa, installer manifest logika, GTK/XML/SVG/XPM reference,
 filesystem staging i deploy Nova paketa, `/proc` fixture parseri za hardware/benchmark, Wine prefix putanje,
 APT source validacija, stvarni GnuPG integracioni test (generisan privremeni ključ, potpisan i proveren manifest,
@@ -55,6 +56,9 @@ odbijen drugi fingerprint, odbijen izmenjen manifest i payload). **To su provere
 | 41344663028 | 2m0s | neuspeh u `Resolve the image release` | Ispravka iznad nije bila dovoljna: **Actions token sa `contents: read` uopšte ne vidi draft release-ove**. `boot-test.yml` sada traži `contents: write` i ispisuje šta mu je API vratio kad tag nedostaje. |
 | 41345007667 | 4m24s | neuspeh u boot koraku | `join-parts.py` spojio 2 dela i potvrdio SHA256, ali QEMU monitor kod je blokirao na `stream.read(4096)` (dočekuje 4096 bajtova, a pozdrav je kraći) → `TimeoutError`, nijedan kadar. `serial.log` je **prazan** jer Mint koristi `quiet splash` bez `console=ttyS0`, pa je screendump jedini kanal. Ispravka: `recv` sa istekom + ponavljanje (`boot-capture.py`). |
 | 41345675650 | 47m | **boot dokazan** | BIOS/TCG, `-m 4096`, 2 vCPU. Kadrovi: splash tokom podizanja (~25 s), pa **živ XFCE desktop** sa panelom, satom 20:23 → 20:25 kroz uzastopne kadrove, i Nova dobrodošlicom otvorenom iz `/usr/share/nova/welcome.html`. Snimci su u `docs/evidence/boot-bios-4096mb-run41345675650/`. |
+| 41350074375 | 39m55s | delimičan (UEFI boot test) | Koraci zeleni, ali od 25 kadrova sačuvana su **samo 2** (015 i 023) i oba prikazuju **GRUB 2.12 EFI meni** — dokaz da EFI boot slika i GRUB-EFI rade, bez dokaza o desktopu. Uzrok mirovanja: `grub.cfg` nema `set timeout` (nasleđeno iz Mint-a). Harness je odbacivao monitor odgovor pa je svaki neuspeo kadar bio neobjašnjiv. |
+| 41350648294 | — | u toku | **BIOS sa `-m 1024`** — jedini emulirani test koji gađa pravo usko grlo ciljne mašine (Celeron, 1 GB). |
+| 41354005351 | — | u redu | UEFI ponovljeno sa `--enter-at 120,300` (`sendkey ret`), da se vidi da li prvi unos menija zaista diže live sesiju. |
 
 ## Emulirani boot — šta je viđen, a šta nije
 
@@ -65,6 +69,30 @@ Nova launcherima; prozor Firefox-a sa lokalnom Nova dobrodošlicom (srpski sadr�
 Nije videno i ne tvrdi se: instalacija na disk, ponašanje pri restartu sa diska, Secure Boot, UEFI putanja
 (ovaj run je BIOS režim), izgled Nove GTK/treme u punom obimu, i bilo kakve performanse — TCG emulacija bez KVM-a
 meri brzinu hosta, ne Celerona. Vreme do desktopa (~6 min) **nije** broj koji sme da se citira kao performansa.
+
+### UEFI emulirani boot (run 41350074375): do GRUB-a, ne i do desktopa
+
+`boot_mode=uefi`, 4096 MB, 25 planiranih kadrova. Od toga je **sačuvan samo kadar 015 i 023** (ostali
+`screendump` nisu napravili fajl), i oba pokazuju **isti ekran**: `GNU GRUB version 2.12` meni sa
+„Start Linux Mint 22.1 Xfce 64-bit", „compatibility mode", „OEM install", „Boot from next volume",
+„UEFI Firmware Settings" i „Memory test".
+
+To što meni postoji **jeste dokaz** tri stvari: EFI El Torito slika (`/boot/grub/efi.img`) se pronalaži,
+GRUB-ov EFI binarni modul startuje, i on učitava baš naš `/boot/grub/grub.cfg` (ulazi „UEFI Firmware Settings"
+i „Boot from next volume" se dodaju samo kada je `$grub_platform` = efi).
+
+To što je i dalje tu posle 23 minuta **nije** dokaz da UEFI desktop radi. Razlog je nađen direktno iz slike,
+bez alata za ISO (`_probe/iso_read.py`): `/boot/grub/grub.cfg` ima 989 bajtova i **nijednu `set timeout`
+liniju**, a `/boot/grub/x86_64-efi/grub.cfg` (254 bajta) samo `insmod`-uje particione module i
+`source /boot/grub/grub.cfg`. Bez timeout-a GRUB čeka tastaturu beskonačno — odatle meni bez odbrojavanja.
+Izvor (Mint 22.1) ima `grub.cfg` iste veličine, 989 bajtova (videti `inspect` log), pa je ovo **nasleđeno
+ponašanje Mint-ovog boot loadera, a ne Nova regresija**. Posledica po korisnika je realna: na UEFI mašini
+neko mora da pritisne Enter. Da li Nova to menja dodavanjem timeout-a u bootloader konfiguraciju je odluka
+koja se ne donosi usput — to je najrizičniji fajl u slici.
+
+Dva fixa u harnessu (commit `33f2d23`): monitor odgovor se više ne odbacuje, pa sledeći run govori *zašto* kadar
+nije napravljen, i dodato je `--enter-at` koje šalje `sendkey ret` u zadate sekunde. Run `41354005351`
+ponavlja UEFI sa Enter-om na 120 s i 300 s.
 
 ### Slike između run-ova nisu identične
 
@@ -95,8 +123,9 @@ direktorijumom, a ne zbog sadržaja slike.
 
 ## Nije izvršeno
 
-- **Podizanje na pravom mediju i hardveru:** UEFI i Secure Boot putanje, fizička mašina, USB stik, BIOS boot na
-  hardveru. Emulirani BIOS boot do XFCE desktopa je **viđen** (gore), ali to nije dokaz o platformi.
+- **Podizanje na pravom mediju i hardveru:** Secure Boot, fizička mašina, USB stik, BIOS i UEFI boot na hardveru.
+  Emulirani BIOS boot do XFCE desktopa je **viđen** (gore), a emulirani UEFI samo do GRUB menija — ni jedno ni
+  drugo nije dokaz o platformi.
 - Instalacija na HDD/SSD, particionisanje, disk-only reboot, rollback.
 - Merenja na 1/2/4 GB RAM-a, CPU, Wi-Fi, audio, USB, suspend, stvarni Wine/Steam/Bottles.
 - Pravni pregled redistribucije (`licenses/inventory.csv` nosi `redistribution_review=pending`).

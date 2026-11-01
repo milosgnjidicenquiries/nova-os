@@ -62,6 +62,13 @@ APT radi `update`, bezbednu `upgrade --with-new-pkgs` bez uklanjanja paketa, zat
 
 Nasleđeni initrd naziv (`initrd`, `initrd.lz` ili `initrd.gz`) i putanja se očuvaju; kernel/initramfs se sinhronizuju. BIOS/UEFI informacije se preuzimaju od originalnog ISO-a, ne iz pretpostavljenih GRUB flag-ova. To nije `-boot_image any replay`: u Mint 22.1 BIOS El Torito unos **nema ISO9660 putanju** (samo LBA 4675), pa replay odbija sa „not a data file in the ISO filesystem“. Umesto toga `build/write-iso.py` poziva `xorriso -report_el_torito cmd` i preuzima izvorne `-boot_image` komande (`cat_path=/isolinux/boot.cat`, `bin_path=/isolinux/isolinux.bin`, `efi_path=/boot/grub/efi.img`, `system_area=--interval:imported_iso…`). Svaka izveštajna linija je **više argumenata** i razdvaja se sa `shlex.split` u zasebne argv stavke (proslediti celu liniju kao jedan argument daje xorriso „Not a known command“). Build staje ako bilo koji od četiri obavezna flag-a nedostaje. Volumen je `NOVAOS010` (samo A–Z/0–9, jer prethodni `NOVA_OS_0_1` izaziva ISO 9660 upozorenje). To nije ugrozio boot: izvorni `/boot/grub/grub.cfg` (pročitan iz samog ISO-a) učitava `/casper/vmlinuz` i `/casper/initrd.lz` preko `${iso_path}`, a BIOS ide kroz El Torito katalog — nijedna putanja ne zavisi od starog label-a „Linux Mint 22.1 Xfce 64-bit“. `isolinux/live.cfg` ima `timeout 100` (10 s) sa `menu default` na „Start Linux Mint“, pa i headless boot sam nastavlja ka live sesiji.
 
+**UEFI strana nema to svojstvo.** `/boot/grub/grub.cfg` (989 bajtova, kopiran nepromenjen) ne sadrži nijednu
+`set timeout` liniju, a `/boot/grub/x86_64-efi/grub.cfg` (254 bajta) samo `insmod`-uje particione module i
+`source`-uje grub.cfg. GRUB bez timeout-a čeka tastaturu beskonačno, pa se UEFI boot zaustavlja na meniju dok
+neko ne pritisne Enter — dokazano emulacijom (run 41350074375) i istom veličinom fajla u izvornoj Mint slici,
+dakle nasleđeno a ne Nova greška. Dodavanje timeout-a znači menjanje najrizičnijeg fajla u slici i za sada se
+namerno ne radi; boot test harness zato ima `--enter-at` koji šalje `sendkey ret`.
+
 Mint 22.1 Xfce u `casper/` nema `filesystem.manifest-desktop`: spisak paketa za uklanjanje pri instalaciji je u
 `filesystem.manifest-remove` (128 stavki, samo nazivi), a `filesystem.manifest` je tabom razdvojen. `finalize-tree.py`
 prihvata oba rasporeda, regeneriše `filesystem.manifest-remove` tako što izbacuje pakete koje je Nova već purgovala, i
