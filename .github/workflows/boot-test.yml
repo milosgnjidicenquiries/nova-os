@@ -26,8 +26,10 @@ on:
         default: "30"
         type: string
 
+# A read-only Actions token does not see draft releases, and the image is
+# published as a draft precisely because it is untested.
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: boot-test

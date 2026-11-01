@@ -25,7 +25,9 @@ def pick_release(releases, tag):
                   if (tag is not None and release.get("tag_name") == tag)
                   or (tag is None and release.get("draft"))]
     if not candidates:
-        raise SystemExit(f"No release found for {'tag ' + tag if tag else 'draft'}")
+        seen = ", ".join(f"{release.get('tag_name')}(draft={release.get('draft')})" for release in releases)
+        raise SystemExit(f"No release found for {'tag ' + tag if tag else 'draft'}; "
+                         f"the API returned {len(releases)} release(s): {seen or 'nothing'}")
     return max(candidates, key=lambda release: release["id"])
 
 
