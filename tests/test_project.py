@@ -26,6 +26,7 @@ finalize = load("finalize_tree", "build/finalize-tree.py")
 lock = load("check_lock", "build/check-lock.py")
 packager = load("create_defaults", "build/create-defaults.py")
 deployment = load("deploy_defaults", "build/deploy-defaults.py")
+writer = load("write_iso", "build/write-iso.py")
 
 
 class PackagingTests(unittest.TestCase):
@@ -135,6 +136,47 @@ class ManifestTests(unittest.TestCase):
             path = Path(directory) / "lock"
             path.write_text("# lock\nfirefox=1.0\nlibc6:amd64=2.0\n")
             self.assertEqual(lock.entries(path), {"firefox": "1.0", "libc6:amd64": "2.0"})
+
+
+class BootCommandTests(unittest.TestCase):
+    # Captured by xorriso -report_el_torito cmd on the real Mint 22.1 XFCE image.
+    REPORT = """-boot_image isolinux system_area=--interval:imported_iso:0s-15s:zero_mbrpt,zero_gpt,zero_apm:'/abs/linuxmint-22.1-xfce-64bit.iso'
+-boot_image any partition_cyl_align=off
+-boot_image any partition_offset=16
+-boot_image any mbr_force_bootable=on
+-boot_image any apm_block_size=2048
+-boot_image any iso_mbr_part_type=0x00
+-boot_image any cat_path='/isolinux/boot.cat'
+-boot_image isolinux bin_path='/isolinux/isolinux.bin'
+-boot_image any platform_id=0x00
+-boot_image any emul_type=no_emulation
+-boot_image any load_size=2048
+-boot_image any boot_info_table=on
+-boot_image any next
+-boot_image any efi_path='/boot/grub/efi.img'
+-boot_image any platform_id=0xef
+-boot_image any emul_type=no_emulation
+-boot_image any load_size=5242880
+-boot_image isolinux partition_entry=gpt_basdat
+-boot_image isolinux partition_entry=apm_hfsplus
+"""
+
+    def test_each_report_line_becomes_separate_argv_tokens(self):
+        flags = writer.require(writer.boot_flags(self.REPORT))
+        self.assertEqual(flags[:3], ["-boot_image", "isolinux", "system_area=--interval:imported_iso:0s-15s:zero_mbrpt,zero_gpt,zero_apm:/abs/linuxmint-22.1-xfce-64bit.iso"])
+        self.assertIn("cat_path=/isolinux/boot.cat", flags)
+        self.assertIn("bin_path=/isolinux/isolinux.bin", flags)
+        self.assertIn("efi_path=/boot/grub/efi.img", flags)
+        self.assertNotIn("-boot_image any cat_path='/isolinux/boot.cat'", flags)
+        self.assertEqual(flags.count("-boot_image"), self.REPORT.count("\n-boot_image") + 1)
+
+    def test_missing_required_flags_rejected(self):
+        with self.assertRaises(ValueError):
+            writer.require(writer.boot_flags("-boot_image any cat_path=/isolinux/boot.cat\n"))
+
+    def test_empty_report_rejected(self):
+        with self.assertRaises(ValueError):
+            writer.require(writer.boot_flags("xorriso : NOTE : nothing here\n"))
 
 
 class DeliveryTests(unittest.TestCase):
