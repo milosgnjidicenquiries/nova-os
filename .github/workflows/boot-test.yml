@@ -25,6 +25,11 @@ on:
         required: false
         default: "30"
         type: string
+      enter_at:
+        description: Press Enter at these seconds (comma separated) for menus that never time out
+        required: false
+        default: ""
+        type: string
 
 # A read-only Actions token does not see draft releases, and the image is
 # published as a draft precisely because it is untested.
@@ -71,16 +76,22 @@ jobs:
           python3 .github/scripts/fetch-release-assets.py "${args[@]}"
 
       - name: Boot the image under TCG emulation and capture the screen
+        env:
+          BOOT_MODE: ${{ inputs.boot_mode }}
+          MEMORY_MB: ${{ inputs.memory_mb }}
+          FRAMES: ${{ inputs.frames }}
+          ENTER_AT: ${{ inputs.enter_at }}
         run: |
           set -Eeuo pipefail
           python3 .github/scripts/join-parts.py --dir assets
-          echo "Emulated boot: ${{ inputs.boot_mode }} firmware, ${{ inputs.memory_mb }} MB RAM, ${{ inputs.frames }} frames."
+          echo "Emulated boot: $BOOT_MODE firmware, $MEMORY_MB MB RAM, $FRAMES frames, Enter at [$ENTER_AT]."
           python3 .github/scripts/boot-capture.py \
             --iso assets/nova-os-0.1.0-amd64.iso \
             --out boot \
-            --memory "${{ inputs.memory_mb }}" \
-            --mode "${{ inputs.boot_mode }}" \
-            --count "${{ inputs.frames }}" \
+            --memory "$MEMORY_MB" \
+            --mode "$BOOT_MODE" \
+            --count "$FRAMES" \
+            --enter-at "$ENTER_AT" \
             --interval 60
 
       - name: Upload boot evidence

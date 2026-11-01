@@ -44,16 +44,46 @@ def monitor(sock_path, command, wait=10.0):
 
 
 def screendump(sock_path, ppm, retries=3):
+    """Dump the screen, reporting why a failed attempt failed.
+
+    Without the monitor reply a missing file is undiagnosable, and this loop
+    runs on a hosted runner where a retry costs the whole job.
+    """
+    last = ""
     for attempt in range(retries):
         try:
-            monitor(sock_path, f"screendump {ppm}", wait=5.0)
+            last = monitor(sock_path, f"screendump {ppm}", wait=5.0)
         except OSError as error:
-            print(f"screendump attempt {attempt + 1} failed: {error}", flush=True)
+            last = str(error)
         for _ in range(20):
             if ppm.is_file() and ppm.stat().st_size:
                 return True
             time.sleep(0.5)
+        print(f"screendump attempt {attempt + 1}: no file; monitor said {last.strip()[:300]!r}", flush=True)
     return False
+
+
+def parse_times(value):
+    """Comma-separated seconds, deduplicated and ordered; empty means nothing."""
+    return sorted({int(part) for part in value.split(",") if part.strip()})
+
+
+def wait_with_keys(sock_path, seconds, pending, elapsed):
+    """Sleep in short ticks, firing any scheduled Enter keypress that came due.
+
+    A single long sleep would let a scheduled keystroke land minutes late, and
+    the point of the keystroke is to dismiss a boot menu that never times out.
+    """
+    target = elapsed + seconds
+    while elapsed < target:
+        step = min(15, target - elapsed)
+        time.sleep(step)
+        elapsed += step
+        while pending and pending[0] <= elapsed:
+            pending.pop(0)
+            reply = monitor(sock_path, "sendkey ret", wait=5.0)
+            print(f"sent Enter at {elapsed}s: {reply.strip()[:200]!r}", flush=True)
+    return elapsed
 
 
 def main():
@@ -65,6 +95,7 @@ def main():
     parser.add_argument("--mode", choices=("bios", "uefi"), default="bios")
     parser.add_argument("--interval", type=int, default=60, help="seconds between screenshots")
     parser.add_argument("--count", type=int, default=30, help="how many screenshots to take")
+    parser.add_argument("--enter-at", default="", help="comma-separated seconds at which to press Enter")
     args = parser.parse_args()
     args.out = args.out.resolve()
     args.out.mkdir(parents=True, exist_ok=True)
@@ -89,11 +120,14 @@ def main():
     print("QEMU:", " ".join(shlex.quote(part) for part in command), flush=True)
     guest = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
     frames = []
+    pending = parse_times(args.enter_at)
+    elapsed = 0
     try:
         for attempt in range(1, args.count + 1):
             # The first frame is taken early so the boot loader / early console is
             # captured even when the desktop itself needs minutes under emulation.
-            time.sleep(args.interval if attempt > 1 else min(args.interval, 25))
+            elapsed = wait_with_keys(monitor_socket, args.interval if attempt > 1 else min(args.interval, 25),
+                                     pending, elapsed)
             if guest.poll() is not None:
                 print(f"QEMU exited early with code {guest.returncode}: {guest.stderr.read()[:2000]}", flush=True)
                 break
