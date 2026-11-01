@@ -58,7 +58,9 @@ odbijen drugi fingerprint, odbijen izmenjen manifest i payload). **To su provere
 | 41345675650 | 47m | **boot dokazan** | BIOS/TCG, `-m 4096`, 2 vCPU. Kadrovi: splash tokom podizanja (~25 s), pa **živ XFCE desktop** sa panelom, satom 20:23 → 20:25 kroz uzastopne kadrove, i Nova dobrodošlicom otvorenom iz `/usr/share/nova/welcome.html`. Snimci su u `docs/evidence/boot-bios-4096mb-run41345675650/`. |
 | 41350074375 | 39m55s | delimičan (UEFI boot test) | Koraci zeleni, ali od 25 kadrova sačuvana su **samo 2** (015 i 023) i oba prikazuju **GRUB 2.12 EFI meni** — dokaz da EFI boot slika i GRUB-EFI rade, bez dokaza o desktopu. Uzrok mirovanja: `grub.cfg` nema `set timeout` (nasleđeno iz Mint-a). Harness je odbacivao monitor odgovor pa je svaki neuspeo kadar bio neobjašnjiv. |
 | 41350648294 | 1h13m | **1 GB desktop viđen** | BIOS/TCG sa `-m 1024`. Kadri 008–013: live XFCE sa dobrodošlicom, sat 21:55 → 22:01. Od kadra 016 nadalje ujednačena crnina (pixel-identični kadrovi) — najverovatnije DPMS gašenje, ali harness ne budi ekran pa se ne tvrdi ništa. Snimci: `docs/evidence/boot-bios-1024mb-run41350648294/`. |
-| 41354005351 | — | u redu | UEFI ponovljeno sa `--enter-at 120,300` (`sendkey ret`), da se vidi da li prvi unos menija zaista diže live sesiju. |
+| 41354005351 | 1h14m | bez novog dokaza | UEFI sa `--enter-at 120,300`. Sačuvana **opet samo 2** od 25 kadrova, i dalje GRUB meni. Log konačno pokazuje uzrok: `(qemu)` bez greške = komanda nikad izvršena. QEMU dozvoljava jednog monitor klijenta, pa konekcija-po-komandi baca i `screendump` i `sendkey`. |
+| 41357268299 | — | u toku | BIOS `-m 1024` sa Enter-om na 900/1200/1500/1800 s, da se vidi da li se desktop posle gašenja ekrana vraća. |
+| 41361076620 | — | u redu | UEFI sa ispravljenim monitorom (jedna veza + `info status` rukovanje) i Enter-om na 120/300 s. |
 
 ## Emulirani boot — šta je viđen, a šta nije
 
@@ -93,6 +95,18 @@ koja se ne donosi usput — to je najrizičniji fajl u slici.
 Dva fixa u harnessu (commit `33f2d23`): monitor odgovor se više ne odbacuje, pa sledeći run govori *zašto* kadar
 nije napravljen, i dodato je `--enter-at` koje šalje `sendkey ret` u zadate sekunde. Run `41354005351`
 ponavlja UEFI sa Enter-om na 120 s i 300 s.
+
+**Ponovljeni run je dao isti crni rezultat, i time je razotkrio pravi uzrok.** Od 25 kadrova opet su sačuvana
+samo dva (019 i 025), oba i dalje GRUB meni, i log sada kaže zašto: svaki neuspeli pokušaj odgovara sa
+`(qemu)` **bez ijedne poruke o grešci** — tj. komanda nikad nije izvršena. QEMU uslužuje **jednog** monitor
+klijenta odjednom, pa konekcija po komandi nasleđuje prethodni prompt i komandu baci. Iz istog razloga i
+`sendkey ret` nikad nije stigao do tastature: Enter je „poslat“ u mrtvu vezu, ne u gostu. Zato dosadašnji
+UEFI kadrovi ne govore ništa o tome da li prvi unos menija diže desktop.
+
+Ispravka (`1f5d855`): jedna dugovezna veza nad whole run-om, plus rukovanje `info status` odmah po startu —
+ako se monitor ne javi, test staje odmah umesto da sat vremena skuplja prazne kadrove. Logika je proverena
+protiv lažnog HMP toka bajtova (deljenog u komade) pre nego što je potrošen još jedan CI sat. Run
+`41361076620` ponavlja UEFI sa tim kodom.
 
 ### 1 GB RAM (run 41350648294): desktop ustaje, pa se ekran ugasi
 
