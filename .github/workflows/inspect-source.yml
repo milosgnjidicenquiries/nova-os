@@ -1,0 +1,51 @@
+name: Inspect source ISO boot layout
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_mirror:
+        description: Linux Mint image mirror base URL
+        required: true
+        default: https://mirror.fcix.net/linuxmint-images/stable/22.1
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      MIRROR: ${{ inputs.source_mirror }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install xorriso
+        run: |
+          set -Eeuo pipefail
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y xorriso squashfs-tools curl
+
+      - name: Download source image
+        run: |
+          set -Eeuo pipefail
+          mkdir -p inputs
+          curl -fsS --retry 3 "$MIRROR/linuxmint-22.1-xfce-64bit.iso" -o inputs/linuxmint-22.1-xfce-64bit.iso
+          sha256sum inputs/linuxmint-22.1-xfce-64bit.iso
+
+      - name: Report El Torito and system area
+        run: |
+          set -Eeuo pipefail
+          ISO=inputs/linuxmint-22.1-xfce-64bit.iso
+          echo '===== EL TORITO: cmd (reproduction flags) ====='
+          xorriso -indev "$ISO" -report_el_torito cmd 2>&1
+          echo '===== SYSTEM AREA: cmd ====='
+          xorriso -indev "$ISO" -report_system_area cmd 2>&1
+          echo '===== EL TORITO: plain ====='
+          xorriso -indev "$ISO" -report_el_torito plain 2>&1
+          echo '===== SYSTEM AREA: plain ====='
+          xorriso -indev "$ISO" -report_system_area plain 2>&1
+          echo '===== BOOT-RELATED PATHS ====='
+          xorriso -osirrox on -indev "$ISO" -find / -type f -exec lsdl 2>/dev/null | grep -Ei 'isolinux|eltorito|efi|grub|boot.catalog|vmlinuz|initrd|casper' || true
