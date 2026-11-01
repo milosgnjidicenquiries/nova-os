@@ -41,7 +41,7 @@ jobs:
           set -Eeuo pipefail
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
-            bash coreutils python3 gnupg curl rsync util-linux \
+            bash coreutils python3 gnupg curl rsync util-linux psmisc \
             xorriso squashfs-tools dpkg-dev initramfs-tools systemd \
             desktop-file-utils shellcheck
           for tool in xorriso unsquashfs mksquashfs dpkg-deb update-initramfs systemctl unshare shellcheck; do

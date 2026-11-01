@@ -56,7 +56,7 @@ sudo bash build/build-iso.sh \
   --output-dir out/nova-0.1.0-build1
 ```
 
-Output direktorijum mora biti nov; postojeći output se nikada ne prepisuje. Nema operacija sa fizičkim diskovima. `--keep-work` zadržava radno stablo i nakon uspeha; pri neuspehu ono ostaje automatski. Mount-ovi rade u privatnom mount namespace-u i odmontiraju se u obrnutom redosledu. Ako je unmount neuspešan, ne brišu se stablo niti aktivni procesi: ručno pregledajte mount-ove.
+Output direktorijum mora biti nov; postojeći output se nikada ne prepisuje. Nema operacija sa fizičkim diskovima. `--keep-work` zadržava radno stablo i nakon uspeha; pri neuspehu ono ostaje automatski. Mount-ovi rade u privatnom mount namespace-u. Pri čišćenju se prvo zaustavljaju procesi čiji je root samo build hord, pa se kačenja skidaju **od najdubljeg ka plićem** (`findmnt`), jer potkačenje koje je napravio `update-initramfs` (npr. `/sys/fs/cgroup`) drži roditelja zauzetim. Ako tri runde običnog `umount`-a ne uspe, sledi `umount -l` uz ispisano `fuser -vm` objašnjenje ko ga je držao; tek ako ni to ne prođe stablo ostaje sačuvano radi ručnog pregleda.
 
 APT radi `update`, bezbednu `upgrade --with-new-pkgs` bez uklanjanja paketa, zatim manifest. Zadržava Mint/Ubuntu izvore i provere potpisa. Nema `dist-upgrade`, `autoremove`, custom kernela ni automatskog isključivanja sistemskih usluga. Pre purga optional paketa radi se simulacija; ako bi uklonila zaštićen paket, build staje. U tom slučaju pregledajte `build.log` i korigujte whitelist; nemojte zaobilaziti proveru.
 

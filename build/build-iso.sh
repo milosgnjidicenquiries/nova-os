@@ -47,7 +47,6 @@ python3 "$PROJECT/build/verify-source.py" --iso "$ISO" --checksums "$CHECKSUMS" 
 WORK=$(mktemp -d "$OUTPUT/.nova-work.XXXXXX")
 ROOT=$WORK/rootfs
 TREE=$WORK/iso
-MOUNTS=()
 # dpkg and initramfs triggers can leave helpers rooted in the build chroot, which keeps the bind-mounted /sys busy.
 nova_release_chroot() {
     local root_real proc pid target attempt root_link
@@ -71,18 +70,33 @@ nova_release_chroot() {
         sleep 1
     done
 }
+nova_list_mounts() {
+    # Deepest first: a submount created inside the chroot (e.g. /sys/fs/cgroup) keeps its parent busy.
+    findmnt -r -n -o TARGET | grep -F -- "$ROOT" | tac || true
+}
 nova_unmount_all() {
-    local failed=0 index try
+    local round target mounts
     nova_release_chroot
-    for ((index=${#MOUNTS[@]}-1; index>=0; index--)); do
-        mountpoint -q "${MOUNTS[index]}" || continue
-        for ((try = 0; try < 5; try++)); do
-            umount -- "${MOUNTS[index]}" && break
-            sleep 1
-        done
-        mountpoint -q "${MOUNTS[index]}" && failed=1
+    for ((round = 1; round <= 6; round++)); do
+        mounts=$(nova_list_mounts)
+        [[ -n "$mounts" ]] || return 0
+        while IFS= read -r target; do
+            [[ -n "$target" ]] || continue
+            if ((round < 4)); then
+                umount -- "$target" 2>/dev/null && continue
+                printf 'Still busy in round %s: %s\n' "$round" "$target"
+            else
+                printf 'Detaching lazily: %s\n' "$target"
+                if command -v fuser >/dev/null; then fuser -vm -- "$target" 2>&1 || true; fi
+                umount -l -- "$target" 2>/dev/null && continue
+            fi
+            printf 'Failed to unmount %s\n' "$target" >&2
+        done <<< "$mounts"
+        sleep 1
     done
-    return "$failed"
+    printf 'Mounts left under the build chroot:\n' >&2
+    nova_list_mounts >&2
+    return 1
 }
 cleanup() {
     local result=$? failed=0
@@ -152,11 +166,11 @@ import os, sys
 from pathlib import Path
 path = Path(sys.argv[1]); path.write_text('#!/bin/sh\nexit 101\n'); os.chmod(path, 0o755)
 PY
-mount -t proc proc "$ROOT/proc"; MOUNTS+=("$ROOT/proc")
-mount --bind /sys "$ROOT/sys"; MOUNTS+=("$ROOT/sys")
+mount -t proc proc "$ROOT/proc"
+mount --bind /sys "$ROOT/sys"
 mount -o remount,bind,ro "$ROOT/sys"
-mount --bind /dev "$ROOT/dev"; MOUNTS+=("$ROOT/dev")
-mount --bind /dev/pts "$ROOT/dev/pts"; MOUNTS+=("$ROOT/dev/pts")
+mount --bind /dev "$ROOT/dev"
+mount --bind /dev/pts "$ROOT/dev/pts"
 CONFIGURE=(python3 "$PROJECT/build/configure-rootfs.py" "$ROOT" --packages "$PROJECT/build/packages.txt" --remove "$PROJECT/build/remove-packages.txt")
 [[ -z "$LOCK" ]] || CONFIGURE+=(--lock "$LOCK")
 "${CONFIGURE[@]}"
@@ -194,7 +208,6 @@ else
     rm -f -- "$ROOT/usr/sbin/policy-rc.d"
 fi
 nova_unmount_all
-MOUNTS=()
 EPOCH=${SOURCE_DATE_EPOCH:-$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source_date_epoch"])' "$PROJECT/build/base.json")}
 [[ "$EPOCH" =~ ^[0-9]+$ ]] || { printf '%s\n' 'Invalid SOURCE_DATE_EPOCH'; exit 1; }
 python3 "$PROJECT/build/finalize-tree.py" "$TREE" "$ROOT" --epoch "$EPOCH" --comp "$COMP"
