@@ -103,6 +103,16 @@ sudo bash build/build-iso.sh \
 
 To uspeva samo dok su navedene verzije u repo-u ili u sopstvenoj zakonito održavanoj, potpisanoj arhivi. Konačni package inventar mora tačno odgovarati lock-u; mismatch zaustavlja build. Snapshot repo, sačuvani .deb paketi, verzije build alata, initramfs i instalacioni timestamp-ovi nisu potpuno zaključani. **Bit-identična reproducibilnost nije ostvarena niti potvrđena.** Ne predstavljati skriptovan remaster kao dokaz reproducible-build sertifikacije. Za bezbednosno novo izdanje regenerisati lock sa aktuelnim potpisanim paketima, ne zaključavati zastarelu bezbednosnu verziju zauvek.
 
+## squashfs kompresija kao izmjeriva poluga
+
+Live sistem dekomprimuje squashfs pri svakom čitanju, pa je taj CPU rad plat po read-u na Celeronu 2008. — ne jednokratan trošak builda. Zato `build-iso.sh` prima `--squashfs-comp source|gzip|lz4|lzo|xz|zstd`, a `source` (kompresija zatečena iz baze, ispisana u build logu) ostaje default:
+
+```sh
+sudo bash build/build-iso.sh ... --squashfs-comp lz4
+```
+
+Za svaki kandidat su potrebna dva para izlaza na ciljnoj mašini — `nova-performance status` plus `nova-benchmark` pre i posle pokretanja istog skupa koraka — pre nego što se neki od njih proglasi boljim. Projekat ne menja default bez takvog merenja.
+
 ## Kontrola ISO-a
 
 ```sh

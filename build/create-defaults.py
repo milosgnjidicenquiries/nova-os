@@ -38,6 +38,7 @@ def stage_payload(project, stage):
         ("system/performance/zramswap", "usr/share/nova/performance/zramswap"),
         ("system/performance/zramswap-low-memory", "usr/share/nova/performance/zramswap-low-memory"),
         ("system/performance/nova-low-memory.conf", "usr/share/nova/performance/nova-low-memory.conf"),
+        ("system/performance/nova-performance-auto.service", "usr/lib/systemd/system/nova-performance-auto.service"),
         ("system/browser/nova.js", "usr/share/nova/browser/nova.js"),
         ("system/performance/nova-journald.conf", "usr/share/nova/performance/nova-journald.conf"),
         ("installer/nova-firstboot.desktop", "usr/share/nova/skel/.config/autostart/nova-firstboot.desktop"),

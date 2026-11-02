@@ -107,7 +107,7 @@ nova-benchmark --output benchmark-installed.json
 nova-compat status
 ```
 
-`nova-performance status` ne traži root i ništa ne menja — prijaviće MemTotal, koji zram profil mašina zaslužuje, instalirani procenat pool-a, aktivne `/dev/zram*` uređaje i žive `vm.swappiness`/`vm.page-cluster`. `sudo nova-performance apply` zatim postavlja 35% pool, a na mašini koja prijavi 1,5 GB ili manje 50% pool, uz `vm.swappiness=140` i `vm.page-cluster=0` samo ako zram zaista postoji; prethodne vrednosti se zapisuju i vraćaju rollback-om.
+`nova-performance status` ne traži root i ništa ne menja — prijaviće MemTotal, koji zram profil mašina zaslužuje, instalirani procenat pool-a, aktivne `/dev/zram*` uređaje, pet živih `vm.*` vrednosti i `auto_apply=enabled|disabled`. Pošto profil uključuje `nova-performance-auto.service`, koji je omogućen u samoj slici, `apply` se izvrša pri svakom bootu — i u live sesiji i na instaliranom sistemu: 35% pool, a na mašini koja prijavi 1,5 GB ili manje 50% pool, uz `vm.swappiness=140`, `vm.page-cluster=0`, `vm.vfs_cache_pressure=50` i `vm.dirty_background_bytes`/`vm.dirty_bytes` — potonje samo ako zram zaista postoji. Zbog tog jedinog razloga ručne izmene u `/etc/default/zramswap` ili journald drop-inu biće resetovane sledećim bootom; da profil ostane isključen, pokrenite rollback umesto ručnog editovanja.
 
 Koristite Update Manager za aktuelna bezbednosna ažuriranja. Po potrebi proverite `sudo ufw status verbose` i `zramctl`/`swapon --show`; ne pretpostavljajte aktivaciju bez izlaza tih komandi. Softver se dodaje preko Software Manager-a. Wine/Steam/Bottles ne dolaze automatski.
 
@@ -115,7 +115,7 @@ Koristite Update Manager za aktuelna bezbednosna ažuriranja. Po potrebi proveri
 
 - GRUB recovery/prior kernel ili verified live USB služe dijagnostici.
 - Ako nov stock kernel regresira, privremeno pokrenite prethodni instalirani kernel i zabeležite problem. Ne uklanjajte sve kernale.
-- `sudo nova-performance rollback` vraća originalni zram/journald profil, uklanja low-memory drop-in i vraća `vm.swappiness`/`vm.page-cluster` na vrednosti zabilježene pri apply-u; restartuje samo aktivne odgovarajuće servise i ne gasi mrežu/audio/security.
+- `sudo nova-performance rollback` vraća originalni zram/journald profil, uklanja low-memory drop-in i vraća svih pet `vm.*` tunable-a na vrednosti zabilježene pri apply-u; restartuje samo aktivne odgovarajuće servise i ne gasi mrežu/audio/security. Uz to piše `/var/lib/nova/performance-auto.disabled`, pa se profil ne vraća sam od sebe sledećim bootom — `sudo nova-performance apply` briše taj marker.
 - Originalni skel je u `/var/lib/nova/backups/skel`; vratite samo pregledane pojedinačne fajlove i odjavite/prijavite korisnika. Postojeći korisnički `.config/xfce4` prvo sačuvati.
 - Tema se može promeniti u XFCE Appearance ili `nova-theme light`.
 - Uklonjen Wine prefix je u `~/.local/share/nova/prefix-trash`; vratite ga pre pokretanja Wine-a, ne dok aplikacije rade. Aktivne Wine procese zatvorite pre uklanjanja prefiksa.

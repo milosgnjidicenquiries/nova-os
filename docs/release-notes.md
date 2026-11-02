@@ -11,12 +11,13 @@ Datum: 2026-10-29. **Source-only izdanje; nije javno potvrđen bootabilni releas
 - Linux hardware JSON, stvarni benchmark collector za ciljnu sesiju i fixture testovi.
 - zram/journald profili sa sačuvanim originalima i eksplicitnim rollback-om, bez gašenja essential servisa.
 - Opcioni compatibility CLI/GTK center i ograničen privilegovani helper; korisnički Wine prefixes i reversible removal.
-- `nova-performance status` (read-only, bez roota), hardverski uslovljen RAM profil: 50% zram pool i `vm.swappiness`/`vm.page-cluster` drop-in samo kad mašina prijavi ≤1,5 GB i `nova-benchmark`/`/proc/swaps` pokaže aktivan zram; žive vrednosti se zapisuju i vraćaju rollback-om.
+- `nova-performance status` (read-only, bez roota), hardverski uslovljen RAM profil: 50% zram pool i drop-in s `vm.swappiness`, `vm.page-cluster`, `vm.vfs_cache_pressure` i `vm.dirty_background_bytes`/`vm.dirty_bytes` samo kad mašina prijavi ≤1,5 GB i `/proc/swaps` pokaže aktivan zram; žive vrednosti se zapisuju i vraćaju rollback-om.
+- `nova-performance-auto.service` pokreće `apply` pri svakom bootu instaliranog sistema, posle `zramswap.service`; rollback piše `/var/lib/nova/performance-auto.disabled` kao trajni odustanak, a `apply` ga briše.
 - Firefox memorija: RAM cache ograničen na 32 MiB, hardware video decode isključen za r600/pre-AVX2, unload pozadinskih tabova eksplicitan; sve kao `pref`, nikako `lockPref`.
 - Windows 11 sloj: 46x32 caption polje, 2 px fokus prsten, accent podvlačenje fokusanog polja, ravni treeview headeri s separatorima, sidebar i infobar površine, scrollbar thumb koji se zadebljava pod pointerom, crveni close hover u CSD-u, Super+strelice za snap i Super+Shift+strelice za premještanje između monitora.
 - `nova-benchmark` sada prijavljuje PSS i RSS rollup po imenu procesa, swap/`/dev/zram*` uređaje s izmjerenim lz4 omjerom i CPU po procesu u istom petosekundnom prozoru.
 - Lokalni first-boot vodič; Software Manager, updater i package manager ostaju upstream.
-- `pref()` defaulti za Firefox (dva content procesa, ograničen page-cache, bez GPU akceleracije i feedova) i first-boot koji ispod 1,6 GB šalje obaveštenje umesto da diže pregledač; stranica dobrodošlice ostaje u meniju.
+- `pref()` defaulti za Firefox (dva content procesa, ograničen page-cache, bez GPU akceleracije i feedova) i first-boot koji na ≤1,5 GB šalje obaveštenje umesto da diže pregledač — isti prag kao performance profil; stranica dobrodošlice ostaje u meniju.
 - Panel u Windows 11 rasporedu: centrirana grupa meni/pokretači/prozori, 48 px, ikonice bez natpisa, dvoredni sat; tema sa 4 px kontrolama, 8 px flyout uglima, obojenom selekcijom i zaobljenim naslovnom trakom (zaobljivanje zavisi od XFWM podrške).
 - `nova-defaults` package staging, izolovan mount namespace, chroot remaster, kernel/initrd sinhronizacija, BIOS/UEFI replay i structural ISO verifier.
 - Build, instalaciona, recovery i QA dokumentacija; license inventory export.
@@ -35,8 +36,9 @@ Datum: 2026-10-29. **Source-only izdanje; nije javno potvrđen bootabilni releas
 10. Skriptovan build i tačan package lock nisu bit-identična reproducibilnost. Potrebne su arhivirane verzije/snapshot i ponovljeni hash testovi.
 11. Firmware/proprietary sadržaj nasleđenog ISO-a nije konačno pravno auditovan; copyright inventory je pomoć, ne approval. Upstream oznake i zahtevi za objavu odgovarajućeg izvornog koda moraju se poštovati.
 12. Nema posebne sertifikacije CPU/GPU/Wi-Fi uređaja, disk instalacije niti fizičkog USB testa.
-13. Low-memory profil (50% zram pool, `vm.swappiness=140`, `vm.page-cluster=0`) i `nova-performance status` nikad nisu izvršeni na živoj Linux mašini; testirani su samo sintaksa bash-a i ugovori u fixture testovima. `sysctl -p` zahteva procps, a `smaps_rollup` zahteva kernel 4.14+.
+13. Low-memory profil (50% zram pool i svih pet `vm.*` tunable-a), `nova-performance status` i `nova-performance-auto.service` nikad nisu izvršeni na živoj Linux mašini; testirani su samo sintaksa bash-a i ugovori u fixture testovima. `sysctl -p` zahteva procps, a `smaps_rollup` zahteva kernel 4.14+.
 14. Novi CSS selectori, 46x32 caption polje i Super+Shift+strelice nisu renderovani ni pritisnuti u pravom GTK/XFCE okruženju; nepoznate xfwm4 akcije se tiho ignorišu, ne javljaju grešku.
+15. Vrednosti tunable-a su mehanizam, ne izmereno poboljšanje: `vm.dirty_background_bytes`/`vm.dirty_bytes` su apsolutne kape (ne proporcionalne RAM-u), pa se na mašini s više memorije moraju ponovo proceniti. `--squashfs-comp` menja samo izlaz remastera; `source` (zatečeње iz baze) ostaje default dok neki kandidat ne bude izmerjen na ciljnom CPU-u.
 
 ## Spremnost faza
 

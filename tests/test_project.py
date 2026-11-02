@@ -108,13 +108,58 @@ class PerformanceProfileTests(unittest.TestCase):
         self.assertEqual((standard["ALGO"], low["ALGO"]), ("lz4", "lz4"))
         self.assertEqual((standard["PRIORITY"], low["PRIORITY"]), ("100", "100"))
 
-    def test_sysctl_profile_is_limited_to_the_two_documented_tunables(self):
+    def test_sysctl_profile_is_limited_to_the_documented_tunables(self):
         settings = {}
         for line in self.packaged("nova-low-memory.conf").splitlines():
             if line and not line.startswith("#"):
                 key, value = (part.strip() for part in line.split("=", 1))
                 settings[key] = int(value)
-        self.assertEqual(settings, {"vm.swappiness": 140, "vm.page-cluster": 0})
+        self.assertEqual(settings, {
+            "vm.swappiness": 140, "vm.page-cluster": 0, "vm.vfs_cache_pressure": 50,
+            "vm.dirty_background_bytes": 16777216, "vm.dirty_bytes": 67108864,
+        })
+
+    def test_recorded_keys_match_the_dropin_exactly(self):
+        # A tunable written by the drop-in but not recorded could never be rolled back.
+        script = self.packaged("nova-performance.sh")
+        declared = script.split("low_memory_keys=(")[1].split(")")[0].split()
+        written = [line.split("=")[0].strip() for line in
+                   self.packaged("nova-low-memory.conf").splitlines()
+                   if line and not line.startswith("#")]
+        self.assertEqual(sorted(declared), sorted(written))
+        self.assertIn('for key in "${low_memory_keys[@]}"; do record_sysctl "$key"; done', script)
+
+    def test_profile_engages_at_boot_and_stays_off_after_rollback(self):
+        unit = (PROJECT / "system/performance/nova-performance-auto.service").read_text()
+        self.assertIn("ExecStart=/usr/local/bin/nova-performance apply", unit)
+        self.assertIn("ConditionPathExists=!/var/lib/nova/performance-auto.disabled", unit)
+        self.assertIn("After=zramswap.service", unit)
+        self.assertIn("Type=oneshot", unit)
+        self.assertIn("WantedBy=multi-user.target", unit)
+        script = self.packaged("nova-performance.sh")
+        self.assertIn("auto_disabled=/var/lib/nova/performance-auto.disabled", script)
+        self.assertIn('install -m 0644 /dev/null "$auto_disabled"', script)
+        self.assertIn('rm -f -- "$auto_disabled"', script)
+        self.assertIn("usr/share/nova/performance/nova-low-memory.conf",
+                      (PROJECT / "build/create-defaults.py").read_text())
+        self.assertIn('("system/performance/nova-performance-auto.service", '
+                      '"usr/lib/systemd/system/nova-performance-auto.service")',
+                      (PROJECT / "build/create-defaults.py").read_text())
+        self.assertIn("enable zramswap.service ufw.service nova-performance-auto.service",
+                      (PROJECT / "build/build-iso.sh").read_text())
+
+    def test_low_memory_gate_is_one_number_across_the_system(self):
+        self.assertIn("low_memory_gate_kb=1572864", self.packaged("nova-performance.sh"))
+        firstboot = (PROJECT / "installer/nova-firstboot.sh").read_text(encoding="utf-8")
+        self.assertIn("NOVA_LOW_MEMORY_KB:-1572864", firstboot)
+        self.assertIn("<= ${NOVA_LOW_MEMORY_KB:-1572864}", firstboot)
+
+    def test_squashfs_compressor_is_a_build_knob_with_the_writer_choices(self):
+        script = (PROJECT / "build/build-iso.sh").read_text()
+        self.assertIn("--squashfs-comp source|gzip|lz4|lzo|xz|zstd", script)
+        self.assertIn("[[ $SQUASH == source ]] || COMP=$SQUASH", script)
+        self.assertIn('choices=("gzip", "lz4", "lzo", "xz", "zstd")',
+                      (PROJECT / "build/finalize-tree.py").read_text())
 
     def test_tunables_are_gated_on_measured_ram_and_an_active_zram_device(self):
         script = self.packaged("nova-performance.sh")

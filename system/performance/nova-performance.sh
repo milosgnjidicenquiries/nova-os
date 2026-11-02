@@ -1,5 +1,6 @@
 #!/bin/bash
-# Live-system opt-in only. The ISO remaster installs the profiles separately.
+# Runs unattended from nova-performance-auto.service at boot; `rollback` writes the marker
+# that unit's ConditionPathExists checks, so a deliberate rollback is not undone next boot.
 set -euo pipefail
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 
@@ -24,9 +25,12 @@ journal=/etc/systemd/journald.conf.d/nova-performance.conf
 low_memory=/etc/sysctl.d/99-nova-low-memory.conf
 low_memory_source=$profile/nova-low-memory.conf
 live_values=$backups/low-memory-sysctl.live
+auto_disabled=/var/lib/nova/performance-auto.disabled
 # 1.5 GB in kB. Above this the shipped pool already leaves a browser more room than it
 # can use, so the larger pool and the tunables stay off the machine.
 low_memory_gate_kb=1572864
+# Every key the gated drop-in writes, so recording and reporting cannot drift from it.
+low_memory_keys=(vm.swappiness vm.page-cluster vm.vfs_cache_pressure vm.dirty_background_bytes vm.dirty_bytes)
 total_kb=0
 
 # Fixed destinations only; do not follow config or backup symlinks.
@@ -149,10 +153,12 @@ if [[ $1 == status ]]; then
         fi
     }
 
-    show_sysctl vm.swappiness
-    show_sysctl vm.page-cluster
+    for key in "${low_memory_keys[@]}"; do
+        show_sysctl "$key"
+    done
     printf 'low_memory_dropin=%s\n' "$([[ -f $low_memory ]] && echo present || echo absent)"
     printf 'recorded_original_values=%s\n' "$([[ -f $live_values ]] && echo present || echo absent)"
+    printf 'auto_apply=%s\n' "$([[ -f $auto_disabled ]] && echo disabled || echo enabled)"
     exit 0
 fi
 
@@ -171,6 +177,9 @@ if [[ $1 == apply ]]; then
     # Report the pool from the installed profile instead of restating a hardcoded number.
     installed=$(installed_percent) || fail "No numeric PERCENT in $zram"
     printf 'Nova sees %s MB of RAM; the zram pool is %s%% of it.\n' "$(( total_kb / 1024 ))" "$installed"
+    # An explicit apply is consent for the boot unit, so drop the rollback opt-out marker.
+    [[ ! -L $auto_disabled ]] || fail 'Refusing symlink auto-apply marker.'
+    rm -f -- "$auto_disabled"
 else
     for name in zramswap nova-performance.conf; do
         check_backup "$name"
@@ -190,6 +199,11 @@ else
         rm -f -- "$live_values"
         printf 'Nova restored the kernel values that were live before apply.\n'
     fi
+    # Rollback is a deliberate choice, so it also opts the machine out of the boot unit.
+    [[ ! -L $auto_disabled ]] || fail 'Refusing symlink auto-apply marker.'
+    install -d -m 0755 /var/lib/nova
+    install -m 0644 /dev/null "$auto_disabled"
+    printf 'Nova will not re-apply the profile at boot; run nova-performance apply to opt back in.\n'
 fi
 
 # Restart only the two services this script configures, and only when they already run.
@@ -211,7 +225,7 @@ if [[ $1 == apply && $low_memory_eligible == true ]]; then
     else
         [[ ! -L $live_values ]] || fail 'Refusing symlink live-value record.'
         if [[ ! -e $live_values ]]; then
-            values=$(record_sysctl vm.swappiness && record_sysctl vm.page-cluster)
+            values=$(for key in "${low_memory_keys[@]}"; do record_sysctl "$key"; done)
             (umask 077 && printf '%s\n' "$values" >"$live_values")
         fi
         [[ -f $low_memory_source && ! -L $low_memory_source ]] ||

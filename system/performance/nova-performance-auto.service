@@ -1,0 +1,17 @@
+[Unit]
+Description=Nova OS low-memory performance profile
+# Ordered after zram-tools so the compressed device exists before the tunables that
+# depend on it; the profile itself re-checks /proc/swaps and refuses to raise swappiness
+# when no zram device is active.
+After=zramswap.service
+ConditionPathIsReadWrite=/etc
+# A deliberate `nova-performance rollback` writes this marker so the profile stays off.
+ConditionPathExists=!/var/lib/nova/performance-auto.disabled
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nova-performance apply
+TimeoutStartSec=180
+
+[Install]
+WantedBy=multi-user.target

@@ -4,16 +4,17 @@ export LC_ALL=C
 ORIGINAL_ARGS=("$@")
 PROJECT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 usage() {
-    printf '%s\n' 'Usage: sudo bash build/build-iso.sh --iso FILE --checksums FILE --signature FILE --key FILE --output-dir DIR [--package-lock FILE] [--keep-work]'
+    printf '%s\n' 'Usage: sudo bash build/build-iso.sh --iso FILE --checksums FILE --signature FILE --key FILE --output-dir DIR [--package-lock FILE] [--squashfs-comp source|gzip|lz4|lzo|xz|zstd] [--keep-work]'
 }
-ISO= CHECKSUMS= SIGNATURE= KEY= OUTPUT= LOCK= KEEP=0
+ISO= CHECKSUMS= SIGNATURE= KEY= OUTPUT= LOCK= KEEP=0 SQUASH=source
 while (($#)); do
     case "$1" in
-        --iso|--checksums|--signature|--key|--output-dir|--package-lock)
+        --iso|--checksums|--signature|--key|--output-dir|--package-lock|--squashfs-comp)
             (($# >= 2)) || { usage; exit 2; }
             case "$1" in
                 --iso) ISO=$2;; --checksums) CHECKSUMS=$2;; --signature) SIGNATURE=$2;;
                 --key) KEY=$2;; --output-dir) OUTPUT=$2;; --package-lock) LOCK=$2;;
+                --squashfs-comp) SQUASH=$2;;
             esac
             shift 2;;
         --keep-work) KEEP=1; shift;;
@@ -21,6 +22,7 @@ while (($#)); do
         *) usage; exit 2;;
     esac
 done
+case "$SQUASH" in source|gzip|lz4|lzo|xz|zstd) ;; *) printf 'Unsupported squashfs compression: %s\n' "$SQUASH" >&2; exit 2;; esac
 [[ -n "$ISO" && -n "$CHECKSUMS" && -n "$SIGNATURE" && -n "$KEY" && -n "$OUTPUT" ]] || { usage; exit 2; }
 [[ $(uname -s) == Linux && $(uname -m) == x86_64 && $EUID == 0 ]] || { printf '%s\n' 'Requires root in a dedicated x86-64 Linux build VM. Windows Git Bash is not a Linux build host.' >&2; exit 1; }
 for tool in python3 gpg xorriso unsquashfs mksquashfs dpkg-deb mount mountpoint umount chroot rsync flock sha256sum systemctl tee realpath install du dpkg unshare; do
@@ -127,6 +129,10 @@ unsquashfs -d "$ROOT" "$TREE/casper/filesystem.squashfs"
 COMP=$(unsquashfs -s "$ISO_TMP_SQUASH" | python3 -c 'import re,sys; m=re.search(r"Compression\s+([a-z0-9]+)", sys.stdin.read()); print(m.group(1) if m else "")')
 case "$COMP" in gzip|lz4|lzo|xz|zstd) ;; *) printf 'Unknown source squashfs compression: %s\n' "$COMP" >&2; exit 1;; esac
 printf 'Source squashfs compression: %s\n' "$COMP"
+# Decompression CPU is the live system's per-read cost, so the compressor is a measured
+# knob rather than a fixed upstream copy; the default keeps the source image's choice.
+[[ $SQUASH == source ]] || COMP=$SQUASH
+printf 'Remaster squashfs compression: %s\n' "$COMP"
 python3 - "$ROOT" "$PROJECT/build/base.json" <<'PY'
 import json, shlex, sys
 from pathlib import Path
@@ -180,7 +186,7 @@ chroot "$ROOT" dpkg -i /tmp/nova-defaults.deb
 rm -f -- "$ROOT/tmp/nova-defaults.deb"
 python3 "$PROJECT/build/deploy-defaults.py" "$ROOT"
 python3 "$PROJECT/build/configure-security.py" "$ROOT"
-systemctl --root="$ROOT" enable zramswap.service ufw.service
+systemctl --root="$ROOT" enable zramswap.service ufw.service nova-performance-auto.service
 if [[ -d "$ROOT/home/mint" ]]; then
     rsync -a "$ROOT/etc/skel/.config/" "$ROOT/home/mint/.config/"
     chroot "$ROOT" chown -R mint:mint /home/mint/.config
