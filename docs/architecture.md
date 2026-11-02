@@ -51,6 +51,8 @@ Paket se zadržava u instaliranom sistemu. Originalni Nova profil je u `/usr/sha
 | journald limit | Ograničen disk/log prostor, bez isključivanja sigurnosnih logova | `sudo nova-performance rollback` i restart journald-a |
 | Opciono uklanjanje aplikacija | Manji image i manje nepotrebnog softvera | Reinstalirati paket preko Software Manager-a/APT-a |
 | XFCE profil/tema | Familiarni taskbar bez efekata | XFCE Settings, `nova-theme light|dark`; novi korisnik ili uklanjanje Nova profila |
+| Firefox defaulti (`00-nova.js`) | Dva content procesa, ograničen page-cache, bez GPU akceleracije i bez pozadinskih feedova — najskuplji potrošač na 1 GB | Ukloniti `/usr/lib/firefox/defaults/preferences/00-nova.js`; ništa od ovoga nije `lockPref` |
+| Dobrodošlica bez pregledača ispod 1,6 GB | Live sesija na 1 GB ne diže Firefox sama; stranica ostaje u meniju ("Nova OS — dobrodošlica") | `rm ~/.local/state/nova/welcome-seen` i ponovni `nova-firstboot`, ili drugi prag preko `NOVA_LOW_MEMORY_KB` |
 | UFW default | Minimalno izložene mrežne usluge | Vratiti sačuvane rootfs konfiguracije; na instaliranom sistemu pregledati pravila pre promene |
 
 zram nije dodatni stvarni RAM i nije zamena za testiranje. HDD swap podesiti kroz potvrđeno particionisanje u installer-u; build ne pravi niti formatira swap particije.
@@ -60,6 +62,8 @@ zram nije dodatni stvarni RAM i nije zamena za testiranje. HDD swap podesiti kro
 Kernel i firmware su upstream paketi; nema posebnih binarnih drajvera niti obećanja svih Wi-Fi/GPU uređaja. Driver Manager ostaje dostupna opciona upstream mogućnost. Vulkan/DXVK/VKD3D nisu automatski uključeni. Bottles/Steam su opciona preuzimanja za hardver s dovoljno RAM-a; Flathub remote se ne dodaje automatski.
 
 Firefox se koristi zbog održavanih bezbednosnih izdanja i Mint native paketa; nije obećan mali RAM footprint. Xreader je PDF viewer. Thunar, Terminal, Synaptic, mintupdate i mintinstall ostaju; nema duplog custom package manager-a.
+
+`system/browser/nova.js` se postavlja uz instalirani Firefox (`defaults/preferences/00-nova.js`) i sadrži samo `pref()` defaulte: bez zaključanih vrednosti, bez gašenja site izolacije, bez diranja auto-ažuriranja. Build preskaže taj korak ako Firefox direktorijum ne postoji (npr. ESR ili drugачија instalacija).
 
 ## Izvori
 

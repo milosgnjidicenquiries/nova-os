@@ -1,8 +1,8 @@
 /* XPM */
 static char *bottom_right_inactive[] = {
 "5 3 2 1",
-"a c #f3f5f7",
-"b c #bcc7d2",
+"a c #f9f9f9",
+"b c #e0e0e0",
 "aaaab",
 "aaaab",
 "bbbbb"

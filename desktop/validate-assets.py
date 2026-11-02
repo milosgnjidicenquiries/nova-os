@@ -59,10 +59,15 @@ assert panel["/configver"].attrib["value"] == "2"
 assert [n.attrib["value"] for n in panel["/panels"].findall("value")] == ["1"]
 assert panel["/panels/panel-1/position"].attrib["value"] == "p=10;x=0;y=0"
 assert panel["/panels/panel-1/length"].attrib["value"] == "100"
-expected_plugins = ["whiskermenu", "launcher", "launcher", "tasklist", "separator",
+assert panel["/panels/panel-1/size"].attrib["value"] == "48"
+# Two expand separators hold the menu, launchers and window list as one centered block.
+expected_plugins = ["separator", "whiskermenu", "launcher", "launcher", "tasklist", "separator",
                     "systray", "pulseaudio", "power-manager-plugin", "clock", "showdesktop"]
 ids = [n.attrib["value"] for n in panel["/panels/panel-1/plugin-ids"].findall("value")]
-assert [panel[f"/plugins/plugin-{n}"].attrib["value"] for n in ids] == expected_plugins
+plugins = [panel[f"/plugins/plugin-{n}"].attrib["value"] for n in ids]
+assert plugins == expected_plugins
+assert [panel[f"/plugins/plugin-{n}/expand"].attrib["value"] for n, kind in zip(ids, plugins)
+        if kind == "separator"] == ["true", "true"]
 assert len([key for key in panel if re.fullmatch(r"/plugins/plugin-\d+", key)]) == len(ids)
 
 index = configparser.ConfigParser(interpolation=None)

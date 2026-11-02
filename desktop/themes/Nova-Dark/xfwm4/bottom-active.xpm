@@ -1,8 +1,8 @@
 /* XPM */
 static char *bottom_active[] = {
 "2 3 2 1",
-"a c #252d37",
-"b c #526174",
+"a c #202020",
+"b c #3d3d3d",
 "aa",
 "aa",
 "bb"

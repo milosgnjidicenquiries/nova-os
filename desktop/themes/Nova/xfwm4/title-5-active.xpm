@@ -1,8 +1,8 @@
 /* XPM */
 static char *title_5_active[] = {
 "2 32 2 1",
-"a c #bcc7d2",
-"b c #eef2f5",
+"a c #e0e0e0",
+"b c #f3f3f3",
 "aa",
 "bb",
 "bb",

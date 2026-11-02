@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Nova OS Welcome
+Name[sr]=Nova OS — dobrodošlica
+Exec=/usr/bin/xdg-open /usr/share/nova/welcome.html
+TryExec=/usr/bin/xdg-open
+Icon=system-help
+Terminal=false
+Categories=Utility;X-XFCE;
+StartupNotify=false

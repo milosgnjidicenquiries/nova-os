@@ -12,12 +12,14 @@ Datum: 2026-10-29. **Source-only izdanje; nije javno potvrđen bootabilni releas
 - zram/journald profili sa sačuvanim originalima i eksplicitnim rollback-om, bez gašenja essential servisa.
 - Opcioni compatibility CLI/GTK center i ograničen privilegovani helper; korisnički Wine prefixes i reversible removal.
 - Lokalni first-boot vodič; Software Manager, updater i package manager ostaju upstream.
+- `pref()` defaulti za Firefox (dva content procesa, ograničen page-cache, bez GPU akceleracije i feedova) i first-boot koji ispod 1,6 GB šalje obaveštenje umesto da diže pregledač; stranica dobrodošlice ostaje u meniju.
+- Panel u Windows 11 rasporedu: centrirana grupa meni/pokretači/prozori, 48 px, ikonice bez natpisa, dvoredni sat; tema sa 4 px kontrolama, 8 px flyout uglima, obojenom selekcijom i zaobljenim naslovnom trakom (zaobljivanje zavisi od XFWM podrške).
 - `nova-defaults` package staging, izolovan mount namespace, chroot remaster, kernel/initrd sinhronizacija, BIOS/UEFI replay i structural ISO verifier.
 - Build, instalaciona, recovery i QA dokumentacija; license inventory export.
 
 ## Poznata ograničenja
 
-1. ISO još nije proizveden. Linux integracija skripti, paket/installer i desktop nisu potvrđeni.
+1. Jedna slika (`nova-build-8`) je izgrađena i viđena kako u emulaciji diže live XFCE desktop, BIOS i UEFI putanjom, sa 4 GB i sa 1 GB. Instalacija na disk, pravi hardver i Secure Boot nisu potvrđeni. Promene u ovoj listi (panel, CSS, Firefox defaulti, first-boot) nisu još nigde renderovane — strukturne provere i bash simulacije jesu, vizuelna i memorijska verifikacija tek dolaze sa sledećim build-om i boot capture-om.
 2. 1 GB je ispod zvaničnog Mint minimuma 2 GB. Idle 250–400 MB i browser usability nisu izmereni. Installer može zahtevati više memorije.
 3. CPU mora podržavati amd64; dijagnostika proverava LM/NX/SSE2, ali pojedinačni browseri/aplikacije mogu zahtevati dodatne instrukcije. Nema 32-bit Nova ISO-a.
 4. Secure Boot nije testiran; očuvan upstream boot materijal nije dokaz funkcionalnosti.

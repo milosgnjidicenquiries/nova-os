@@ -2,7 +2,7 @@
 
 Nova OS je minimalni XFCE derivat Linux Mint-a, ne kernel napisan od nule. Cilj je osnovna upotreba starog x86-64 računara sa 1 GB RAM-a, bez obećanja univerzalne kompatibilnosti.
 
-**Trenutno isporučeno: izvorni projekat, desktop sredstva, dijagnostika, opcione kompatibilne aplikacije i implementiran ISO build postupak. Bootabilni ISO još nije izgrađen niti testiran.** Jedini trenutni blocker za fazu izrade je odsustvo Linux build okruženja na ovom Windows računaru. Prvi sledeći korak je pripremljena Ubuntu 24.04 x86-64 build virtuelna mašina.
+**Trenutno isporučeno: izvorni projekat, desktop sredstva, dijagnostika, opcione kompatibilne aplikacije i ISO build pipeline koji je stvarno proizveo sliku `nova-build-8` — viđenu u emulaciji kako diže live XFCE desktop (BIOS i UEFI, sa 4 GB i sa 1 GB RAM-a).** Instalacija na disk, pravi hardver i performanse nisu provereni; detalji i granice tvrdnji su u [izveštaju o testiranju](docs/testing-report.md).
 
 ## Osnova
 

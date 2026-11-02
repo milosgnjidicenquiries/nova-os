@@ -1,29 +1,29 @@
-gtk-color-scheme = "bg_color:#eef2f5\nfg_color:#243447\nbase_color:#ffffff\ntext_color:#243447\nselected_bg_color:#2467ac\nselected_fg_color:#ffffff\ntooltip_bg_color:#243447\ntooltip_fg_color:#ffffff"
+gtk-color-scheme = "bg_color:#f3f3f3\nfg_color:#1b1b1b\nbase_color:#ffffff\ntext_color:#1b1b1b\nselected_bg_color:#0067c0\nselected_fg_color:#ffffff\ntooltip_bg_color:#ffffff\ntooltip_fg_color:#1b1b1b"
 
 style "nova-default" {
   font_name = "Sans 10"
   xthickness = 3
   ythickness = 3
-  fg[NORMAL] = "#243447"
-  fg[PRELIGHT] = "#243447"
-  fg[ACTIVE] = "#243447"
+  fg[NORMAL] = "#1b1b1b"
+  fg[PRELIGHT] = "#1b1b1b"
+  fg[ACTIVE] = "#1b1b1b"
   fg[SELECTED] = "#ffffff"
-  fg[INSENSITIVE] = "#748292"
-  bg[NORMAL] = "#eef2f5"
-  bg[PRELIGHT] = "#dde6ef"
-  bg[ACTIVE] = "#c9d9ea"
-  bg[SELECTED] = "#2467ac"
-  bg[INSENSITIVE] = "#e8edf1"
+  fg[INSENSITIVE] = "#a0a0a0"
+  bg[NORMAL] = "#f3f3f3"
+  bg[PRELIGHT] = "#eaeaea"
+  bg[ACTIVE] = "#dcdcdc"
+  bg[SELECTED] = "#0067c0"
+  bg[INSENSITIVE] = "#f5f5f5"
   base[NORMAL] = "#ffffff"
   base[PRELIGHT] = "#ffffff"
-  base[ACTIVE] = "#c9d9ea"
-  base[SELECTED] = "#2467ac"
-  base[INSENSITIVE] = "#e8edf1"
-  text[NORMAL] = "#243447"
-  text[PRELIGHT] = "#243447"
-  text[ACTIVE] = "#243447"
+  base[ACTIVE] = "#dcdcdc"
+  base[SELECTED] = "#0067c0"
+  base[INSENSITIVE] = "#f5f5f5"
+  text[NORMAL] = "#1b1b1b"
+  text[PRELIGHT] = "#1b1b1b"
+  text[ACTIVE] = "#1b1b1b"
   text[SELECTED] = "#ffffff"
-  text[INSENSITIVE] = "#748292"
+  text[INSENSITIVE] = "#a0a0a0"
   GtkWidget::focus-line-width = 1
   GtkWidget::focus-padding = 2
   GtkButton::default-border = { 0, 0, 0, 0 }
@@ -50,14 +50,14 @@ style "nova-menu" = "nova-default" {
   xthickness = 2
   ythickness = 3
   bg[NORMAL] = "#ffffff"
-  bg[PRELIGHT] = "#2467ac"
+  bg[PRELIGHT] = "#0067c0"
   fg[PRELIGHT] = "#ffffff"
 }
 widget_class "*<GtkMenu>*" style "nova-menu"
 
 style "nova-tooltip" = "nova-default" {
-  bg[NORMAL] = "#243447"
-  fg[NORMAL] = "#ffffff"
+  bg[NORMAL] = "#ffffff"
+  fg[NORMAL] = "#1b1b1b"
 }
 widget "gtk-tooltip*" style "nova-tooltip"
 

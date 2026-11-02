@@ -1,29 +1,29 @@
-gtk-color-scheme = "bg_color:#252d37\nfg_color:#e6edf5\nbase_color:#1c232c\ntext_color:#e6edf5\nselected_bg_color:#306fb3\nselected_fg_color:#ffffff\ntooltip_bg_color:#e6edf5\ntooltip_fg_color:#1c232c"
+gtk-color-scheme = "bg_color:#202020\nfg_color:#ffffff\nbase_color:#272727\ntext_color:#ffffff\nselected_bg_color:#4cc2ff\nselected_fg_color:#000000\ntooltip_bg_color:#2b2b2b\ntooltip_fg_color:#ffffff"
 
 style "nova-default" {
   font_name = "Sans 10"
   xthickness = 3
   ythickness = 3
-  fg[NORMAL] = "#e6edf5"
-  fg[PRELIGHT] = "#e6edf5"
-  fg[ACTIVE] = "#e6edf5"
-  fg[SELECTED] = "#ffffff"
-  fg[INSENSITIVE] = "#8997a8"
-  bg[NORMAL] = "#252d37"
-  bg[PRELIGHT] = "#354355"
-  bg[ACTIVE] = "#435670"
-  bg[SELECTED] = "#306fb3"
-  bg[INSENSITIVE] = "#29323e"
-  base[NORMAL] = "#1c232c"
-  base[PRELIGHT] = "#1c232c"
-  base[ACTIVE] = "#435670"
-  base[SELECTED] = "#306fb3"
-  base[INSENSITIVE] = "#29323e"
-  text[NORMAL] = "#e6edf5"
-  text[PRELIGHT] = "#e6edf5"
-  text[ACTIVE] = "#e6edf5"
-  text[SELECTED] = "#ffffff"
-  text[INSENSITIVE] = "#8997a8"
+  fg[NORMAL] = "#ffffff"
+  fg[PRELIGHT] = "#ffffff"
+  fg[ACTIVE] = "#ffffff"
+  fg[SELECTED] = "#000000"
+  fg[INSENSITIVE] = "#757575"
+  bg[NORMAL] = "#202020"
+  bg[PRELIGHT] = "#2e2e2e"
+  bg[ACTIVE] = "#383838"
+  bg[SELECTED] = "#4cc2ff"
+  bg[INSENSITIVE] = "#2e2e2e"
+  base[NORMAL] = "#272727"
+  base[PRELIGHT] = "#272727"
+  base[ACTIVE] = "#383838"
+  base[SELECTED] = "#4cc2ff"
+  base[INSENSITIVE] = "#2e2e2e"
+  text[NORMAL] = "#ffffff"
+  text[PRELIGHT] = "#ffffff"
+  text[ACTIVE] = "#ffffff"
+  text[SELECTED] = "#000000"
+  text[INSENSITIVE] = "#757575"
   GtkWidget::focus-line-width = 1
   GtkWidget::focus-padding = 2
   GtkButton::default-border = { 0, 0, 0, 0 }
@@ -49,15 +49,15 @@ class "*" style "nova-default"
 style "nova-menu" = "nova-default" {
   xthickness = 2
   ythickness = 3
-  bg[NORMAL] = "#1c232c"
-  bg[PRELIGHT] = "#306fb3"
-  fg[PRELIGHT] = "#ffffff"
+  bg[NORMAL] = "#272727"
+  bg[PRELIGHT] = "#4cc2ff"
+  fg[PRELIGHT] = "#000000"
 }
 widget_class "*<GtkMenu>*" style "nova-menu"
 
 style "nova-tooltip" = "nova-default" {
-  bg[NORMAL] = "#e6edf5"
-  fg[NORMAL] = "#1c232c"
+  bg[NORMAL] = "#2b2b2b"
+  fg[NORMAL] = "#ffffff"
 }
 widget "gtk-tooltip*" style "nova-tooltip"
 

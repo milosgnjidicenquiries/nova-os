@@ -1,6 +1,6 @@
 /* XPM */
 static char *close_pressed[] = {
-"36 26 2 1",
+"36 32 2 1",
 "a c #b83b39",
 "b c #ffffff",
 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -10,6 +10,10 @@ static char *close_pressed[] = {
 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 "aaaaaaaaaaaabaaaaaaaaabaaaaaaaaaaaaa",
 "aaaaaaaaaaaabbaaaaaaabbaaaaaaaaaaaaa",
 "aaaaaaaaaaaaabbaaaaabbaaaaaaaaaaaaaa",
@@ -22,6 +26,8 @@ static char *close_pressed[] = {
 "aaaaaaaaaaaaabbaaaaabbaaaaaaaaaaaaaa",
 "aaaaaaaaaaaabbaaaaaaabbaaaaaaaaaaaaa",
 "aaaaaaaaaaaabaaaaaaaaabaaaaaaaaaaaaa",
+"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

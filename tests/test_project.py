@@ -35,7 +35,7 @@ class PackagingTests(unittest.TestCase):
             stage = Path(directory) / "stage"
             stage.mkdir()
             packager.stage_payload(PROJECT, stage)
-            for relative in ("usr/local/bin/nova-hardware", "usr/local/bin/nova-compat", "usr/local/libexec/nova-install-component", "usr/local/bin/nova-benchmark", "usr/share/backgrounds/nova.svg", "usr/share/nova/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml", "usr/share/nova/performance/zramswap", "etc/nova-release", "DEBIAN/control"):
+            for relative in ("usr/local/bin/nova-hardware", "usr/local/bin/nova-compat", "usr/local/libexec/nova-install-component", "usr/local/bin/nova-benchmark", "usr/local/bin/nova-notify", "usr/share/nova/browser/nova.js", "usr/share/applications/nova-welcome.desktop", "usr/share/backgrounds/nova.svg", "usr/share/nova/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml", "usr/share/nova/performance/zramswap", "etc/nova-release", "DEBIAN/control"):
                 self.assertTrue((stage / relative).is_file(), relative)
             self.assertFalse((stage / "etc/default/zramswap").exists())
             self.assertFalse((stage / "etc/skel").exists())
@@ -63,6 +63,35 @@ class PackagingTests(unittest.TestCase):
     def test_deploy_rejects_host_root(self):
         with self.assertRaises(ValueError):
             deployment.deploy("/")
+
+    def staged_root(self, directory):
+        root = Path(directory)
+        (root / "etc/linuxmint").mkdir(parents=True)
+        (root / "etc/linuxmint/info").touch()
+        stage = root / "payload"
+        stage.mkdir()
+        packager.stage_payload(PROJECT, stage)
+        shutil.copytree(stage / "usr/share/nova", root / "usr/share/nova")
+        return root
+
+    def test_browser_defaults_reach_only_an_installed_firefox(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.staged_root(directory)
+            deployment.deploy(root)
+            self.assertFalse((root / "usr/lib/firefox/defaults").exists())
+            (root / "usr/lib/firefox/defaults/preferences").mkdir(parents=True)
+            deployment.deploy(root)
+            self.assertIn('pref("dom.ipc.processCount", 2);',
+                          (root / "usr/lib/firefox/defaults/preferences/00-nova.js").read_text())
+            self.assertTrue((root / "var/lib/nova/backups/browser/firefox-nova.js.absent").is_file())
+            (root / "usr/lib/firefox-esr/defaults/preferences").mkdir(parents=True)
+            deployment.deploy(root)
+            self.assertTrue((root / "usr/lib/firefox-esr/defaults/preferences/00-nova.js").is_file())
+
+    def test_browser_defaults_stay_overridable(self):
+        text = (PROJECT / "system/browser/nova.js").read_text()
+        self.assertNotIn("lockPref", text)
+        self.assertIn('pref("browser.uidensity", 1);', text)
 
 
 class ManifestTests(unittest.TestCase):

@@ -17,6 +17,12 @@ def deploy(root):
         if source.is_file():
             relative = source.relative_to(root / "usr/share/nova/skel")
             mappings.append((source, root / "etc/skel" / relative, backup / "skel" / relative))
+    # The browser directory belongs to another package; contribute defaults only where it exists.
+    browser = root / "usr/share/nova/browser/nova.js"
+    for name in ("firefox", "firefox-esr"):
+        if (root / "usr/lib" / name).is_dir():
+            mappings.append((browser, root / f"usr/lib/{name}/defaults/preferences/00-nova.js",
+                             backup / "browser" / f"{name}-nova.js"))
     for source, target, saved in mappings:
         if not target.resolve().is_relative_to(root):
             raise ValueError(f"Target escapes extracted rootfs: {target}")

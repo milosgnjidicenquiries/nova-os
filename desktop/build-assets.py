@@ -11,19 +11,21 @@ def emit(relative, content):
     path.write_text(content, encoding="utf-8", newline="\n")
 
 
+# Flat surfaces with a tinted selection follow the Windows 11 visual language. Real Mica
+# needs a compositor, so each surface carries the wallpaper tint instead of a blur.
 PALETTES = {
-    "Nova": dict(bg="#eef2f5", fg="#243447", base="#ffffff", muted="#566579",
-                 border="#bcc7d2", hover="#dde6ef", pressed="#c9d9ea",
-                 accent="#2467ac", accent_hover="#1c568f", selected="#ffffff",
-                 disabled_bg="#e8edf1", disabled_fg="#748292", trough="#d6dfe7",
-                 inactive_bg="#f3f5f7", inactive_fg="#667485", tooltip="#243447",
-                 tooltip_fg="#ffffff"),
-    "Nova-Dark": dict(bg="#252d37", fg="#e6edf5", base="#1c232c", muted="#b3c0cf",
-                      border="#526174", hover="#354355", pressed="#435670",
-                      accent="#306fb3", accent_hover="#397fc9", selected="#ffffff",
-                      disabled_bg="#29323e", disabled_fg="#8997a8", trough="#19212a",
-                      inactive_bg="#28303a", inactive_fg="#b3bfcd", tooltip="#e6edf5",
-                      tooltip_fg="#1c232c"),
+    "Nova": dict(bg="#f3f3f3", fg="#1b1b1b", base="#ffffff", muted="#616161",
+                 border="#e0e0e0", hover="#eaeaea", pressed="#dcdcdc",
+                 accent="#0067c0", accent_hover="#1975c4", selected="#ffffff",
+                 disabled_bg="#f5f5f5", disabled_fg="#a0a0a0", trough="#e5e5e5",
+                 inactive_bg="#f9f9f9", inactive_fg="#8a8a8a", tooltip="#ffffff",
+                 tooltip_fg="#1b1b1b", panel="#f3f3f3", tint="0.22"),
+    "Nova-Dark": dict(bg="#202020", fg="#ffffff", base="#272727", muted="#cfcfcf",
+                      border="#3d3d3d", hover="#2e2e2e", pressed="#383838",
+                      accent="#4cc2ff", accent_hover="#62ccff", selected="#000000",
+                      disabled_bg="#2e2e2e", disabled_fg="#757575", trough="#333333",
+                      inactive_bg="#262626", inactive_fg="#a5a5a5", tooltip="#2b2b2b",
+                      tooltip_fg="#ffffff", panel="#1c1c1c", tint="0.28"),
 }
 
 GTK3 = Template("""@define-color theme_bg_color $bg;
@@ -48,10 +50,10 @@ GTK3 = Template("""@define-color theme_bg_color $bg;
 @define-color success_color #36875a;
 
 * {
-  outline-color: $accent;
-  outline-style: dashed;
+  outline-color: alpha($fg, 0.8);
+  outline-style: solid;
   outline-width: 1px;
-  outline-offset: -3px;
+  outline-offset: -2px;
   -gtk-secondary-caret-color: $accent;
 }
 .background { background-color: $bg; color: $fg; }
@@ -61,8 +63,12 @@ GTK3 = Template("""@define-color theme_bg_color $bg;
 textview border { background-color: $bg; }
 selection, .view:selected, row:selected, iconview:selected,
 textview text selection, entry selection {
-  background-color: $accent;
-  color: $selected;
+  background-color: alpha($accent, $tint);
+  color: $fg;
+}
+selection:backdrop, .view:selected:backdrop, row:selected:backdrop {
+  background-color: alpha($inactive_fg, $tint);
+  color: $fg;
 }
 label { color: inherit; }
 label:disabled { color: $disabled_fg; }
@@ -70,37 +76,38 @@ label link, button.link { color: $accent; }
 label link:hover, button.link:hover { color: $accent_hover; }
 .dim-label { color: $muted; }
 separator { min-width: 1px; min-height: 1px; background-color: $border; }
-frame > border, .frame { border: 1px solid $border; border-radius: 3px; }
+frame > border, .frame { border: 1px solid $border; border-radius: 8px; }
 scrolledwindow > overshoot { background: none; }
 scrolledwindow > junction { background-color: $bg; }
 
 button, entry, spinbutton:not(.vertical), combobox > box > button {
   min-height: 24px;
   border: 1px solid $border;
-  border-radius: 3px;
-  padding: 3px 8px;
+  border-radius: 4px;
+  padding: 4px 10px;
   color: $fg;
-  background-color: $bg;
+  background-color: $base;
   background-image: none;
   box-shadow: none;
+  text-shadow: none;
 }
 button:hover { background-color: $hover; }
-button:active, button:checked { background-color: $pressed; border-color: $accent; }
+button:active, button:checked { background-color: $pressed; border-color: alpha($fg, 0.4); }
 button:disabled, entry:disabled { background-color: $disabled_bg; color: $disabled_fg; }
-button:focus, entry:focus, spinbutton:focus { border-color: $accent; }
+button:focus-visible, entry:focus, spinbutton:focus { border-color: alpha($fg, 0.6); }
 button.suggested-action { background-color: $accent; color: $selected; border-color: $accent; }
 button.suggested-action:hover { background-color: $accent_hover; }
 button.destructive-action { background-color: #c64141; border-color: #c64141; color: #ffffff; }
 button.flat { border-color: transparent; background-color: transparent; }
 button.flat:hover { background-color: $hover; }
-button.flat:checked, button.flat:active { background-color: $pressed; border-color: $accent; }
+button.flat:checked, button.flat:active { background-color: $pressed; border-color: transparent; }
 button image { padding: 0; }
 .linked > button, .linked > entry { border-radius: 0; }
 .linked > button:first-child, .linked > entry:first-child {
-  border-top-left-radius: 3px; border-bottom-left-radius: 3px;
+  border-top-left-radius: 4px; border-bottom-left-radius: 4px;
 }
 .linked > button:last-child, .linked > entry:last-child {
-  border-top-right-radius: 3px; border-bottom-right-radius: 3px;
+  border-top-right-radius: 4px; border-bottom-right-radius: 4px;
 }
 entry { background-color: $base; caret-color: $fg; }
 entry image { color: $muted; }
@@ -111,11 +118,11 @@ spinbutton button { min-width: 16px; min-height: 16px; padding: 0 4px; border: 0
 combobox arrow { -gtk-icon-source: -gtk-icontheme("pan-down-symbolic"); min-width: 16px; min-height: 16px; }
 
 check, radio {
-  min-width: 16px; min-height: 16px; margin: 2px 4px;
-  background-color: $base; border: 1px solid $border;
+  min-width: 16px; min-height: 16px; margin: 2px 6px;
+  background-color: $base; border: 1px solid alpha($fg, 0.45);
   color: $selected; -gtk-icon-source: none;
 }
-check { border-radius: 2px; }
+check { border-radius: 4px; }
 radio { border-radius: 50%; }
 check:hover, radio:hover { border-color: $accent; }
 check:checked, radio:checked, check:indeterminate, radio:indeterminate {
@@ -127,83 +134,90 @@ check:indeterminate, radio:indeterminate { -gtk-icon-source: url("assets/dash.sv
 check:disabled, radio:disabled { opacity: 0.55; }
 checkbutton, radiobutton { padding: 2px; }
 switch {
-  min-width: 38px; min-height: 20px;
-  background-color: $trough; border: 1px solid $border; border-radius: 12px;
+  min-width: 40px; min-height: 20px;
+  background-color: $base; border: 1px solid alpha($fg, 0.45); border-radius: 10px;
 }
 switch:checked { background-color: $accent; border-color: $accent; }
 switch slider {
-  min-width: 16px; min-height: 16px; margin: 2px;
-  border-radius: 50%; background-color: $base; border: 1px solid $border;
+  min-width: 12px; min-height: 12px; margin: 3px;
+  border-radius: 50%; background-color: alpha($fg, 0.8); border: 0;
 }
+switch:checked slider { background-color: $selected; }
 switch:disabled { opacity: 0.55; }
 
 notebook > header { background-color: $bg; padding: 2px; }
 notebook > header > tabs > tab {
-  padding: 6px 12px; margin: 1px; border: 1px solid transparent; border-radius: 3px;
+  padding: 6px 12px; margin: 1px; border: 1px solid transparent; border-radius: 4px;
+  font-weight: normal;
 }
 notebook > header > tabs > tab:hover { background-color: $hover; }
-notebook > header > tabs > tab:checked { background-color: $base; border-color: $border; }
+notebook > header > tabs > tab:checked {
+  background-color: $base; border-color: transparent;
+  border-bottom: 3px solid $accent; border-radius: 4px 4px 0 0;
+}
 notebook > stack { background-color: $base; }
 notebook > header > tabs > arrow { min-width: 16px; min-height: 16px; color: $fg; }
 list { background-color: $base; color: $fg; }
-row { padding: 4px; }
+row { padding: 6px; }
 row:hover { background-color: $hover; }
-row:selected:hover { background-color: $accent_hover; color: $selected; }
+row:selected:hover { background-color: alpha($accent, 0.32); color: $fg; }
 treeview { -GtkTreeView-horizontal-separator: 4; -GtkTreeView-vertical-separator: 4; }
-treeview.view header button { border-radius: 0; }
+treeview.view header button { border-radius: 0; background-color: $bg; }
 rubberband, .rubberband {
-  border: 1px solid $accent; background-color: alpha($accent, 0.2);
+  border: 1px solid $accent; background-color: alpha($accent, 0.16);
 }
 
 menu, .menu, popover {
   background-color: $base; color: $fg; border: 1px solid $border;
-  border-radius: 3px; padding: 4px; box-shadow: none;
+  border-radius: 8px; padding: 4px; box-shadow: none;
 }
 menubar { background-color: $bg; padding: 2px; }
-menuitem { padding: 5px 10px; border-radius: 2px; }
-menuitem:hover { background-color: $accent; color: $selected; }
+menuitem { padding: 7px 12px; border-radius: 4px; }
+menuitem:hover { background-color: $hover; color: $fg; }
 menuitem:disabled { color: $disabled_fg; }
 menuitem arrow { min-width: 16px; min-height: 16px; -gtk-icon-source: -gtk-icontheme("pan-end-symbolic"); }
 menu separator { margin: 4px 0; }
 toolbar, .toolbar { background-color: $bg; padding: 4px; }
 headerbar {
-  background-color: $bg; color: $fg; padding: 4px 6px;
-  border-bottom: 1px solid $border; box-shadow: none;
+  min-height: 32px;
+  background-color: $bg; color: $fg; padding: 4px 8px;
+  border: 0; box-shadow: none;
 }
 headerbar:backdrop { background-color: $inactive_bg; color: $inactive_fg; }
 headerbar .title { font-weight: bold; }
 headerbar .subtitle { color: $muted; font-size: smaller; }
+headerbar button { min-height: 24px; padding: 2px 8px; }
 statusbar { padding: 3px; }
 infobar { background-color: $hover; color: $fg; }
 infobar.error { border-bottom: 2px solid @error_color; }
 infobar.warning { border-bottom: 2px solid @warning_color; }
 
-scrollbar { background-color: $bg; }
-scrollbar trough { background-color: $bg; }
+scrollbar { background-color: transparent; }
+scrollbar trough { background-color: transparent; border: 0; }
 scrollbar slider {
-  min-width: 10px; min-height: 10px; margin: 2px;
-  border: 1px solid $border; border-radius: 6px; background-color: $border;
+  min-width: 6px; min-height: 6px; margin: 2px;
+  border: 0; border-radius: 4px; background-color: alpha($fg, 0.35);
 }
 scrollbar.vertical slider { min-height: 32px; }
 scrollbar.horizontal slider { min-width: 32px; }
-scrollbar slider:hover { background-color: $muted; }
+scrollbar slider:hover { background-color: alpha($fg, 0.55); }
 scrollbar slider:active { background-color: $accent; }
 scrollbar button { min-width: 0; min-height: 0; padding: 0; border: 0; }
 scale { padding: 8px; }
 scale trough, progressbar trough, levelbar trough {
-  min-height: 6px; min-width: 6px; background-color: $trough;
-  border: 1px solid $border; border-radius: 3px;
+  min-height: 4px; min-width: 4px; background-color: $trough;
+  border: 0; border-radius: 2px;
 }
 scale highlight, progressbar progress, levelbar block.filled {
-  min-height: 6px; min-width: 6px; background-color: $accent; border-radius: 3px;
+  min-height: 4px; min-width: 4px; background-color: $accent; border-radius: 2px;
 }
 scale slider {
-  min-height: 16px; min-width: 16px; margin: -6px;
-  background-color: $base; border: 2px solid $accent; border-radius: 50%;
+  min-height: 12px; min-width: 12px; margin: -6px;
+  background-color: $accent; border: 4px solid $accent; border-radius: 50%;
 }
-scale slider:hover { background-color: $hover; }
+scale slider:hover { background-color: $accent_hover; border-color: $accent_hover; }
 progressbar { padding: 2px; }
-progressbar.vertical trough, progressbar.vertical progress { min-width: 6px; }
+progressbar.vertical trough, progressbar.vertical progress { min-width: 4px; }
 levelbar block { margin: 1px; }
 levelbar block.empty { background-color: $trough; }
 levelbar block.low { background-color: @warning_color; }
@@ -214,22 +228,36 @@ spinner:checked { animation: nova-spin 1s linear infinite; }
 
 .tooltip, tooltip {
   background-color: $tooltip; color: $tooltip_fg;
-  border: 1px solid $border; border-radius: 3px; padding: 5px;
+  border: 1px solid $border; border-radius: 8px; padding: 8px;
+  box-shadow: none;
 }
 tooltip label { color: $tooltip_fg; }
-window decoration { box-shadow: none; border: 1px solid $border; border-radius: 3px; }
+window decoration {
+  box-shadow: none; border: 1px solid $border; border-radius: 8px;
+  margin: 0;
+}
 window.maximized decoration, window.fullscreen decoration { border-radius: 0; border-width: 0; }
-.xfce4-panel { background-color: $bg; color: $fg; }
-.xfce4-panel button { min-height: 0; min-width: 0; border-radius: 0; padding: 3px 6px; }
-.xfce4-panel button:checked { background-color: $pressed; border-bottom: 2px solid $accent; }
-#whiskermenu-window { background-color: $base; color: $fg; }
-#whiskermenu-window entry { margin: 4px; }
+.xfce4-panel { background-color: $panel; color: $fg; border-top: 1px solid $border; }
+.xfce4-panel button {
+  min-height: 0; min-width: 0; padding: 4px 6px;
+  margin: 6px 2px; border: 1px solid transparent; border-radius: 4px;
+  background-color: transparent;
+}
+.xfce4-panel button:hover { background-color: alpha($fg, 0.07); }
+.xfce4-panel button:checked {
+  background-color: alpha($fg, 0.07); border-color: transparent;
+  border-bottom: 3px solid $accent;
+}
+.xfce4-panel button:active { background-color: alpha($fg, 0.12); }
+#tasklist button label { font-size: smaller; }
+#whiskermenu-window { background-color: $base; color: $fg; border-radius: 8px; }
+#whiskermenu-window entry { margin: 6px; }
 XfdesktopIconView.view {
   background-color: transparent; color: #ffffff;
   -XfdesktopIconView-label-alpha: 60;
   -XfdesktopIconView-selected-label-alpha: 100;
 }
-XfdesktopIconView.view:selected { background-color: $accent; color: #ffffff; }
+XfdesktopIconView.view:selected { background-color: alpha($accent, 0.5); color: #ffffff; }
 """)
 
 GTK2 = Template("""gtk-color-scheme = "bg_color:$bg\\nfg_color:$fg\\nbase_color:$base\\ntext_color:$fg\\nselected_bg_color:$accent\\nselected_fg_color:$selected\\ntooltip_bg_color:$tooltip\\ntooltip_fg_color:$tooltip_fg"
@@ -385,61 +413,63 @@ def frame_assets(theme, p):
                 if button == "close" and state in ("prelight", "pressed"):
                     bg = "#d94a48" if state == "prelight" else "#b83b39"
                     fg = "#ffffff"
-                pixels = canvas(36, 26, bg)
+                pixels = canvas(36, 32, bg)
                 if button == "close":
                     for offset in (0, 1):
-                        line(pixels, 12, 7 + offset, 22, 17 + offset, fg)
-                        line(pixels, 22, 7 + offset, 12, 17 + offset, fg)
+                        line(pixels, 12, 11 + offset, 22, 21 + offset, fg)
+                        line(pixels, 22, 11 + offset, 12, 21 + offset, fg)
                 elif button == "hide":
-                    line(pixels, 12, 16, 23, 16, fg)
-                    line(pixels, 12, 17, 23, 17, fg)
+                    line(pixels, 12, 20, 23, 20, fg)
+                    line(pixels, 12, 21, 23, 21, fg)
                 elif button == "maximize":
                     if toggled:
-                        rectangle(pixels, 15, 7, 24, 14, fg)
-                        for y in range(10, 18):
+                        rectangle(pixels, 15, 11, 24, 18, fg)
+                        for y in range(14, 22):
                             for x in range(12, 22):
                                 pixels[y][x] = bg
-                        rectangle(pixels, 12, 10, 21, 17, fg)
-                        line(pixels, 13, 11, 20, 11, fg)
+                        rectangle(pixels, 12, 14, 21, 21, fg)
+                        line(pixels, 13, 15, 20, 15, fg)
                     else:
-                        rectangle(pixels, 12, 7, 23, 18, fg)
-                        line(pixels, 13, 8, 22, 8, fg)
+                        rectangle(pixels, 12, 11, 23, 22, fg)
+                        line(pixels, 13, 12, 22, 12, fg)
                 elif button == "menu":
-                    for y in (8, 12, 16):
+                    for y in (12, 16, 20):
                         line(pixels, 12, y, 23, y, fg)
                 elif button == "shade":
-                    line(pixels, 12, 7, 23, 7, fg)
+                    line(pixels, 12, 11, 23, 11, fg)
                     if toggled:
-                        line(pixels, 13, 11, 18, 16, fg)
-                        line(pixels, 18, 16, 23, 11, fg)
+                        line(pixels, 13, 15, 18, 20, fg)
+                        line(pixels, 18, 20, 23, 15, fg)
                     else:
-                        line(pixels, 13, 16, 18, 11, fg)
-                        line(pixels, 18, 11, 23, 16, fg)
+                        line(pixels, 13, 20, 18, 15, fg)
+                        line(pixels, 18, 15, 23, 20, fg)
                 elif button == "stick":
-                    rectangle(pixels, 15, 7, 21, 11, fg)
-                    line(pixels, 13, 13, 23, 13, fg)
-                    line(pixels, 18, 11, 18, 19, fg)
+                    rectangle(pixels, 15, 11, 21, 15, fg)
+                    line(pixels, 13, 17, 23, 17, fg)
+                    line(pixels, 18, 15, 18, 23, fg)
                     if toggled:
-                        line(pixels, 12, 19, 24, 7, fg)
+                        line(pixels, 12, 23, 24, 11, fg)
                 suffix = "toggled-" if toggled else ""
                 xpm(dest + f"{button}-{suffix}{state}.xpm", pixels)
     emit(dest + "themerc", f"""active_text_color={p['fg']}
 inactive_text_color={p['inactive_fg']}
 active_text_shadow_color={p['bg']}
 inactive_text_shadow_color={p['inactive_bg']}
-button_offset=3
+button_offset=2
 button_spacing=0
 full_width_title=true
-frame_border_top=3
-maximized_offset=3
+frame_border_top=0
+maximized_offset=2
 show_app_icon=false
 title_alignment=left
-title_horizontal_offset=8
+title_horizontal_offset=10
 title_vertical_offset_active=0
 title_vertical_offset_inactive=0
 title_shadow_active=false
 title_shadow_inactive=false
 shadow_opacity=0
+rounded_corner_radius_top=8
+rounded_corner_radius_bot=8
 """)
 
 
@@ -450,10 +480,10 @@ GLYPHS = {
 }
 
 ICONS = {
-    ("apps", "nova-start"): ('Nova applications', '<rect x="3" y="3" width="42" height="42" rx="10" fill="#2467ac"/><path d="M14 34V14h5l10 14V14h5v20h-5L19 20v14z" fill="#fff"/>'),
+    ("apps", "nova-start"): ('Nova applications', '<g fill="#0067c0"><rect x="4" y="4" width="18" height="18" rx="3"/><rect x="26" y="4" width="18" height="18" rx="3"/><rect x="4" y="26" width="18" height="18" rx="3"/><rect x="26" y="26" width="18" height="18" rx="3"/></g>'),
     ("apps", "system-file-manager"): ('File manager', '<path d="M4 13a4 4 0 0 1 4-4h11l5 5h16a4 4 0 0 1 4 4v19a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" fill="#bd7a24"/><path d="M4 20h40v17a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" fill="#efbb66"/><path d="M8 24h32" stroke="#fff" stroke-opacity=".6" stroke-width="2"/>'),
-    ("apps", "nova-web"): ('Web browser', '<circle cx="24" cy="24" r="20" fill="#2467ac"/><g fill="none" stroke="#fff" stroke-width="2"><circle cx="24" cy="24" r="15"/><ellipse cx="24" cy="24" rx="7" ry="15"/><path d="M9 24h30M12 16h24M12 32h24"/></g>'),
-    ("places", "user-desktop"): ('Desktop', '<rect x="3" y="5" width="42" height="29" rx="3" fill="#526174"/><rect x="6" y="8" width="36" height="22" rx="1" fill="#2467ac"/><path d="M6 26l12-10 8 6 8-8 8 12v4H6z" fill="#7fafd0"/><path d="M21 34h6v6h8v3H13v-3h8z" fill="#526174"/>'),
+    ("apps", "nova-web"): ('Web browser', '<circle cx="24" cy="24" r="20" fill="#0067c0"/><g fill="none" stroke="#fff" stroke-width="2"><circle cx="24" cy="24" r="15"/><ellipse cx="24" cy="24" rx="7" ry="15"/><path d="M9 24h30M12 16h24M12 32h24"/></g>'),
+    ("places", "user-desktop"): ('Desktop', '<rect x="3" y="5" width="42" height="29" rx="4" fill="#5f5f5f"/><rect x="6" y="8" width="36" height="22" rx="2" fill="#0067c0"/><path d="M6 26l12-10 8 6 8-8 8 12v4H6z" fill="#7fb8e6"/><path d="M21 34h6v6h8v3H13v-3h8z" fill="#5f5f5f"/>'),
 }
 
 

@@ -24,6 +24,7 @@ def stage_payload(project, stage):
         shutil.copytree(project / source, stage / target, dirs_exist_ok=True)
     for source, target in (
         ("scripts/nova-hardware.py", "usr/local/bin/nova-hardware"),
+        ("scripts/nova-notify.py", "usr/local/bin/nova-notify"),
         ("desktop/nova-theme.sh", "usr/local/bin/nova-theme"),
         ("compatibility/nova-compat.py", "usr/local/bin/nova-compat"),
         ("compatibility/install-component.sh", "usr/local/libexec/nova-install-component"),
@@ -35,6 +36,7 @@ def stage_payload(project, stage):
     for source, target in (
         ("desktop/wallpapers/nova.svg", "usr/share/backgrounds/nova.svg"),
         ("system/performance/zramswap", "usr/share/nova/performance/zramswap"),
+        ("system/browser/nova.js", "usr/share/nova/browser/nova.js"),
         ("system/performance/nova-journald.conf", "usr/share/nova/performance/nova-journald.conf"),
         ("installer/nova-firstboot.desktop", "usr/share/nova/skel/.config/autostart/nova-firstboot.desktop"),
         ("installer/welcome.html", "usr/share/nova/welcome.html"),
