@@ -35,7 +35,7 @@ class PackagingTests(unittest.TestCase):
             stage = Path(directory) / "stage"
             stage.mkdir()
             packager.stage_payload(PROJECT, stage)
-            for relative in ("usr/local/bin/nova-hardware", "usr/local/bin/nova-compat", "usr/local/libexec/nova-install-component", "usr/local/bin/nova-benchmark", "usr/local/bin/nova-notify", "usr/share/nova/browser/nova.js", "usr/share/applications/nova-welcome.desktop", "usr/share/backgrounds/nova.svg", "usr/share/nova/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml", "usr/share/nova/performance/zramswap", "etc/nova-release", "DEBIAN/control"):
+            for relative in ("usr/local/bin/nova-hardware", "usr/local/bin/nova-compat", "usr/local/libexec/nova-install-component", "usr/local/bin/nova-benchmark", "usr/local/bin/nova-notify", "usr/share/nova/browser/nova.js", "usr/share/applications/nova-welcome.desktop", "usr/share/backgrounds/nova.svg", "usr/share/nova/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml", "usr/share/nova/performance/zramswap", "usr/share/nova/performance/zramswap-low-memory", "usr/share/nova/performance/nova-low-memory.conf", "etc/nova-release", "DEBIAN/control"):
                 self.assertTrue((stage / relative).is_file(), relative)
             self.assertFalse((stage / "etc/default/zramswap").exists())
             self.assertFalse((stage / "etc/skel").exists())
@@ -92,6 +92,44 @@ class PackagingTests(unittest.TestCase):
         text = (PROJECT / "system/browser/nova.js").read_text()
         self.assertNotIn("lockPref", text)
         self.assertIn('pref("browser.uidensity", 1);', text)
+        self.assertIn('pref("browser.cache.memory.capacity", 32768);', text)
+
+
+class PerformanceProfileTests(unittest.TestCase):
+    def packaged(self, name):
+        return (PROJECT / "system/performance" / name).read_text()
+
+    def zram_settings(self, name):
+        return dict(line.split("=", 1) for line in self.packaged(name).splitlines() if "=" in line and not line.startswith("#"))
+
+    def test_low_memory_pool_is_larger_and_uses_the_same_algorithm(self):
+        standard, low = self.zram_settings("zramswap"), self.zram_settings("zramswap-low-memory")
+        self.assertEqual((int(standard["PERCENT"]), int(low["PERCENT"])), (35, 50))
+        self.assertEqual((standard["ALGO"], low["ALGO"]), ("lz4", "lz4"))
+        self.assertEqual((standard["PRIORITY"], low["PRIORITY"]), ("100", "100"))
+
+    def test_sysctl_profile_is_limited_to_the_two_documented_tunables(self):
+        settings = {}
+        for line in self.packaged("nova-low-memory.conf").splitlines():
+            if line and not line.startswith("#"):
+                key, value = (part.strip() for part in line.split("=", 1))
+                settings[key] = int(value)
+        self.assertEqual(settings, {"vm.swappiness": 140, "vm.page-cluster": 0})
+
+    def test_tunables_are_gated_on_measured_ram_and_an_active_zram_device(self):
+        script = self.packaged("nova-performance.sh")
+        self.assertIn("low_memory_gate_kb=1572864", script)
+        self.assertIn("grep -q '^/dev/zram' /proc/swaps", script)
+        self.assertIn("live_values=$backups/low-memory-sysctl.live", script)
+        self.assertIn('restore "$low_memory" 99-nova-low-memory.conf', script)
+        self.assertIn('sysctl -p "$low_memory"', script)
+
+    def test_status_mode_is_read_only_and_needs_no_root(self):
+        script = self.packaged("nova-performance.sh")
+        branch = script.split("if [[ $1 == status ]]; then")[1].split("exit 0")[0]
+        for forbidden in ("install ", "sysctl -w", "sysctl -p", "rm -f", "flock", "systemctl"):
+            self.assertNotIn(forbidden, branch)
+        self.assertIn("[[ $1 != status ]]", script)
 
 
 class ManifestTests(unittest.TestCase):

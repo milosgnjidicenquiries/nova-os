@@ -99,6 +99,14 @@ assert (ROOT / "icons/Nova/scalable/apps" / (rc["button-icon"] + ".svg")).is_fil
 ET.fromstring(panel["/plugins/plugin-9/digital-format"].attrib["value"])
 wm = props(cfg / "xfconf/xfce-perchannel-xml/xfwm4.xml")
 settings = props(cfg / "xfconf/xfce-perchannel-xml/xsettings.xml")
+shortcuts = props(cfg / "xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml")
+# Windows-key gestures mirror the Windows 11 snapping keys: halves, maximise, minimise,
+# and moving the window across monitors.
+for gesture, action in (("<Super>Left", "tile_left_key"), ("<Super>Right", "tile_right_key"),
+                        ("<Super>Up", "maximize_window_key"), ("<Super>Down", "hide_window_key"),
+                        ("<Super><Shift>Left", "move_window_left_key"),
+                        ("<Super><Shift>Right", "move_window_right_key")):
+    assert shortcuts[f"/xfwm4/custom/{gesture}"].attrib["value"] == action, gesture
 assert wm["/general/use_compositing"].attrib["value"] == "false"
 assert wm["/general/theme"].attrib["value"] == settings["/Net/ThemeName"].attrib["value"] == "Nova"
 assert settings["/Net/IconThemeName"].attrib["value"] == "Nova"
@@ -129,6 +137,9 @@ for path in xpms:
     rows = re.findall(r'^"(.*)"[,]?$', text, re.M)
     width, height, count, cpp = map(int, rows[0].split())
     assert cpp == 1 and len(rows) == 1 + count + height
+    # Caption buttons use the Windows 11 cell: 46x32 with a 32 px titlebar.
+    if path.name.startswith(("close-", "hide-", "maximize-", "menu-", "shade-", "stick-")):
+        assert (width, height) == (46, 32), (path, width, height)
     colors = set()
     for color in rows[1:1 + count]:
         assert re.fullmatch(r". c #[0-9a-fA-F]{6}", color)

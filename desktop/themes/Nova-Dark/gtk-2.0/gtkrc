@@ -25,8 +25,10 @@ style "nova-default" {
   text[SELECTED] = "#000000"
   text[INSENSITIVE] = "#757575"
   GtkWidget::focus-line-width = 1
-  GtkWidget::focus-padding = 2
+  GtkWidget::focus-padding = 0
   GtkButton::default-border = { 0, 0, 0, 0 }
+  GtkButton::interior-focus = 1
+  GtkButton::default-outstanding = 0
   GtkButton::inner-border = { 4, 4, 2, 2 }
   GtkButton::child-displacement-x = 0
   GtkButton::child-displacement-y = 0
@@ -41,6 +43,8 @@ style "nova-default" {
   GtkCheckButton::indicator-spacing = 4
   GtkMenu::horizontal-padding = 4
   GtkMenu::vertical-padding = 4
+  GtkMenuItem::arrow-scaling = 0.7
+  GtkMenuItem::horizontal-padding = 4
   GtkTreeView::horizontal-separator = 4
   GtkTreeView::vertical-separator = 4
 }

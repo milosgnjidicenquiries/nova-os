@@ -22,8 +22,9 @@
 * {
   outline-color: alpha(#ffffff, 0.8);
   outline-style: solid;
-  outline-width: 1px;
-  outline-offset: -2px;
+  outline-width: 2px;
+  outline-offset: -4px;
+  -gtk-outline-radius: 2px;
   -gtk-secondary-caret-color: #4cc2ff;
 }
 .background { background-color: #202020; color: #ffffff; }
@@ -64,9 +65,11 @@ button, entry, spinbutton:not(.vertical), combobox > box > button {
 button:hover { background-color: #2e2e2e; }
 button:active, button:checked { background-color: #383838; border-color: alpha(#ffffff, 0.4); }
 button:disabled, entry:disabled { background-color: #2e2e2e; color: #757575; }
-button:focus-visible, entry:focus, spinbutton:focus { border-color: alpha(#ffffff, 0.6); }
+button:focus-visible, entry:focus, spinbutton:focus { border-color: alpha(#ffffff, 0.45); }
 button.suggested-action { background-color: #4cc2ff; color: #000000; border-color: #4cc2ff; }
 button.suggested-action:hover { background-color: #62ccff; }
+button.default { background-color: #4cc2ff; color: #000000; border-color: #4cc2ff; }
+button.default:hover { background-color: #62ccff; }
 button.destructive-action { background-color: #c64141; border-color: #c64141; color: #ffffff; }
 button.flat { border-color: transparent; background-color: transparent; }
 button.flat:hover { background-color: #2e2e2e; }
@@ -80,11 +83,15 @@ button image { padding: 0; }
   border-top-right-radius: 4px; border-bottom-right-radius: 4px;
 }
 entry { background-color: #272727; caret-color: #ffffff; }
+// Windows 11 marks a focused text box with an accent underline instead of a glow.
+entry:focus { box-shadow: inset 0 -2px 0 #4cc2ff; }
 entry image { color: #cfcfcf; }
 entry.error { border-color: @error_color; }
 entry.warning { border-color: @warning_color; }
 spinbutton entry { border: 0; background-color: #272727; }
-spinbutton button { min-width: 16px; min-height: 16px; padding: 0 4px; border: 0; }
+spinbutton button { min-width: 16px; min-height: 16px; padding: 0 4px; border: 0; color: #cfcfcf; }
+spinbutton button.up { border-bottom: 1px solid #3d3d3d; }
+spinbutton button:hover { color: #ffffff; background-color: #2e2e2e; }
 combobox arrow { -gtk-icon-source: -gtk-icontheme("pan-down-symbolic"); min-width: 16px; min-height: 16px; }
 
 check, radio {
@@ -116,6 +123,10 @@ switch:checked slider { background-color: #000000; }
 switch:disabled { opacity: 0.55; }
 
 notebook > header { background-color: #202020; padding: 2px; }
+notebook > header.top { border-bottom: 1px solid #3d3d3d; }
+notebook > header.bottom { border-top: 1px solid #3d3d3d; }
+notebook > header.left { border-right: 1px solid #3d3d3d; }
+notebook > header.right { border-left: 1px solid #3d3d3d; }
 notebook > header > tabs > tab {
   padding: 6px 12px; margin: 1px; border: 1px solid transparent; border-radius: 4px;
   font-weight: normal;
@@ -132,7 +143,20 @@ row { padding: 6px; }
 row:hover { background-color: #2e2e2e; }
 row:selected:hover { background-color: alpha(#4cc2ff, 0.32); color: #ffffff; }
 treeview { -GtkTreeView-horizontal-separator: 4; -GtkTreeView-vertical-separator: 4; }
-treeview.view header button { border-radius: 0; background-color: #202020; }
+// File-manager column headers read as a flat strip with dividers, like Windows 11 Explorer.
+treeview.view header button {
+  padding: 6px 8px; border: 0; border-right: 1px solid #3d3d3d;
+  border-radius: 0; background-color: #202020; color: #cfcfcf;
+}
+treeview.view header button:last-child { border-right: 0; }
+treeview.view header button:hover { background-color: #2e2e2e; color: #ffffff; }
+treeview.view header button sortindicator, treeview.view header button indicator {
+  color: #cfcfcf; -gtk-icon-size: 12px;
+}
+sidebar, .sidebar { background-color: #202020; }
+sidebar > row { padding: 5px 8px; margin: 1px 4px; border-radius: 4px; }
+sidebar row:hover { background-color: #2e2e2e; }
+sidebar row:selected { background-color: alpha(#4cc2ff, 0.28); color: #ffffff; }
 rubberband, .rubberband {
   border: 1px solid #4cc2ff; background-color: alpha(#4cc2ff, 0.16);
 }
@@ -145,6 +169,7 @@ menubar { background-color: #202020; padding: 2px; }
 menuitem { padding: 7px 12px; border-radius: 4px; }
 menuitem:hover { background-color: #2e2e2e; color: #ffffff; }
 menuitem:disabled { color: #757575; }
+menuitem accelerator { color: #cfcfcf; }
 menuitem arrow { min-width: 16px; min-height: 16px; -gtk-icon-source: -gtk-icontheme("pan-end-symbolic"); }
 menu separator { margin: 4px 0; }
 toolbar, .toolbar { background-color: #202020; padding: 4px; }
@@ -157,10 +182,16 @@ headerbar:backdrop { background-color: #262626; color: #a5a5a5; }
 headerbar .title { font-weight: bold; }
 headerbar .subtitle { color: #cfcfcf; font-size: smaller; }
 headerbar button { min-height: 24px; padding: 2px 8px; }
+// Windows 11 turns the caption close button red; the shape stays a flat square.
+headerbar button.titlebar.close:hover, headerbar button.close:hover,
+window decoration button.close:hover { background-color: #c42b1c; border-color: #c42b1c; color: #ffffff; }
+headerbar button.titlebar.close:active, headerbar button.close:active { background-color: #ac2718; }
 statusbar { padding: 3px; }
-infobar { background-color: #2e2e2e; color: #ffffff; }
-infobar.error { border-bottom: 2px solid @error_color; }
-infobar.warning { border-bottom: 2px solid @warning_color; }
+infobar { background-color: #2e2e2e; color: #ffffff; border-radius: 0; }
+infobar > revealer > box { padding: 8px 12px; border-bottom: 1px solid #3d3d3d; }
+infobar.error > revealer > box { background-color: alpha(@error_color, 0.14); border-bottom: 2px solid @error_color; }
+infobar.warning > revealer > box { background-color: alpha(@warning_color, 0.14); border-bottom: 2px solid @warning_color; }
+infobar.question > revealer > box, infobar.other > revealer > box { background-color: alpha(#4cc2ff, 0.28); }
 
 scrollbar { background-color: transparent; }
 scrollbar trough { background-color: transparent; border: 0; }
@@ -170,6 +201,9 @@ scrollbar slider {
 }
 scrollbar.vertical slider { min-height: 32px; }
 scrollbar.horizontal slider { min-width: 32px; }
+// The thumb thickens under the pointer instead of the trough changing size.
+scrollbar.vertical slider:hover { min-width: 8px; }
+scrollbar.horizontal slider:hover { min-height: 8px; }
 scrollbar slider:hover { background-color: alpha(#ffffff, 0.55); }
 scrollbar slider:active { background-color: #4cc2ff; }
 scrollbar button { min-width: 0; min-height: 0; padding: 0; border: 0; }
@@ -222,6 +256,11 @@ window.maximized decoration, window.fullscreen decoration { border-radius: 0; bo
 #tasklist button label { font-size: smaller; }
 #whiskermenu-window { background-color: #272727; color: #ffffff; border-radius: 8px; }
 #whiskermenu-window entry { margin: 6px; }
+#whiskermenu-window button { border: 0; background-color: transparent; border-radius: 4px; }
+#whiskermenu-window button:hover { background-color: #2e2e2e; }
+#whiskermenu-window button:checked, #whiskermenu-window button:active { background-color: alpha(#4cc2ff, 0.28); }
+#whiskermenu-window treeview { background-color: #272727; color: #ffffff; }
+#whiskermenu-window treeview:selected { background-color: alpha(#4cc2ff, 0.28); color: #ffffff; }
 XfdesktopIconView.view {
   background-color: transparent; color: #ffffff;
   -XfdesktopIconView-label-alpha: 60;

@@ -8,6 +8,19 @@ Izabrana je **22.1 Xia XFCE**: GA 6.8, duži period podrške, bez prelaska na HW
 
 Nema merenja koja potvrđuju 250–400 MB RAM-a. Zvanični minimum Mint-a je 2 GB; 1 GB je Nova eksperimentalni target, posebno težak za installer i savremeni pregledač.
 
+## Memorijski budžet
+
+Sve vrednosti u ovoj tabeli se mjere na ciljnoj mašini; izvor ne sadrži nijedan izmjeren MB.
+
+| Sloj | Šta se plaća | Mjerenje |
+|---|---|---|
+| Sesija (X, xfwm4, xfdesktop, panel, xfsettingsd, dbus) | GTK i X resursi; kompozitor je isključen | `nova-benchmark` → `memory_rollup.groups` (PSS i RSS) |
+| Servisi (pipewire/wireplumber, NetworkManager, polkit, udev, journald) | Stalan anon RAM i povremeni CPU | `memory_rollup`, `process_cpu.top` |
+| Firefox (roditelj + 2 content procesa + GPU/rdd) | RAM po tabu, page-cache, do 32 MiB RAM cache-a, ostatak na disku | `memory_rollup` za `firefox`, `swap` |
+| zram pool | Fizička memorija raste s korišćenjem; lz4 omjer se prijavljuje | `swap.devices[].zram`, `zramctl` |
+
+Firefox i desktop na 1 GB znači da se oboje održavaju zajedno uz komprimovani swap. To nije isto što i cijeli sistem sa pokrenutim browserom ispod 500 MB fizičke memorije; taj broj projekat ne tvrdi i ne može ga dokazati bez `nova-benchmark` izlaza. Mjerni cilj je „Firefox radi na 1 GB“ i „što manje nepotrebnog RAM-a/CPU-a uz potpune normalne funkcije“.
+
 ## Repozitorijumi i identitet
 
 Preserviraju se izvori, APT preference i keyring paketi zvaničnog potpisanog ISO-a:
@@ -47,7 +60,8 @@ Paket se zadržava u instaliranom sistemu. Originalni Nova profil je u `/usr/sha
 | Promena | Razlog | Oporavak |
 |---|---|---|
 | XFWM kompozitor off | Slaba integrisana grafika, manje GPU/CPU rada | Window Manager Tweaks ili `xfconf-query -c xfwm4 -p /general/use_compositing -s true` |
-| zram lz4, 35% RAM-a, prioritet 100 | Komprimovani swap pre HDD-a; fizička alokacija raste s korišćenjem | `sudo nova-performance rollback`; vraćanje backup-a ili upstream zram profila |
+| zram lz4, prioritet 100; 35% RAM-a, odnosno 50% kad `nova-performance apply` izmjeri 1,5 GB ili manje | Komprimovani swap pre HDD-a; fizička alokacija raste s korišćenjem | `sudo nova-performance rollback`; vraćanje backup-a ili upstream zram profila |
+| `vm.swappiness=140`, `vm.page-cluster=0` — samo na mašini s 1,5 GB ili manje **i** aktivnim `/dev/zram*` | Idle anon stranice idu u lz4 umesto izbacivanja page-cache-a; swap-in čita jednu stranu po faultu | `sudo nova-performance rollback` vraća zabilježene žive vrednosti iz `/var/lib/nova/backups/low-memory-sysctl.live` i briše drop-in |
 | journald limit | Ograničen disk/log prostor, bez isključivanja sigurnosnih logova | `sudo nova-performance rollback` i restart journald-a |
 | Opciono uklanjanje aplikacija | Manji image i manje nepotrebnog softvera | Reinstalirati paket preko Software Manager-a/APT-a |
 | XFCE profil/tema | Familiarni taskbar bez efekata | XFCE Settings, `nova-theme light|dark`; novi korisnik ili uklanjanje Nova profila |
@@ -55,7 +69,7 @@ Paket se zadržava u instaliranom sistemu. Originalni Nova profil je u `/usr/sha
 | Dobrodošlica bez pregledača ispod 1,6 GB | Live sesija na 1 GB ne diže Firefox sama; stranica ostaje u meniju ("Nova OS — dobrodošlica") | `rm ~/.local/state/nova/welcome-seen` i ponovni `nova-firstboot`, ili drugi prag preko `NOVA_LOW_MEMORY_KB` |
 | UFW default | Minimalno izložene mrežne usluge | Vratiti sačuvane rootfs konfiguracije; na instaliranom sistemu pregledati pravila pre promene |
 
-zram nije dodatni stvarni RAM i nije zamena za testiranje. HDD swap podesiti kroz potvrđeno particionisanje u installer-u; build ne pravi niti formatira swap particije.
+zram nije dodatni stvarni RAM i nije zamena za testiranje. `nova-performance status` piše samo na standardni izlaz: koliko RAM-a mašina prijavljuje, koji je profil paketa odabran, kolika je instalirana pool veličina, koji su živi `vm.*` vrednosti i da li drop-in postoji — bez root prava i bez ijedne promene. HDD swap podesiti kroz potvrđeno particionisanje u installer-u; build ne pravi niti formatira swap particije.
 
 ## Hardver i aplikacije
 

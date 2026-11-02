@@ -18,6 +18,18 @@ pref("browser.uidensity", 1);
 pref("layers.acceleration.disabled", true);
 pref("gfx.canvas.accelerated", false);
 
+// r600 GPUs and pre-AVX2 CPUs have no usable VP9/AV1 decode path; asking for hardware
+// decode only produces failed attempts and an extra watchdog process.
+pref("media.hardware-video-decoding.enabled", false);
+
+// Firefox's in-RAM cache competes with the pages that must stay resident. 32 MiB is a
+// ceiling, not a target, and the disk cache below it is what a low-memory machine wants.
+pref("browser.cache.memory.capacity", 32768);
+
+// Idle background tabs are dropped under memory pressure instead of the whole browser
+// being killed; the tab stays in its window and reloads when selected.
+pref("browser.tabs.unloadOnLowMemory", true);
+
 // Background reporting and the sponsored/discovery feeds cost CPU, RAM and bandwidth.
 pref("datareporting.policy.dataSubmissionEnabled", false);
 pref("datareporting.healthreport.uploadEnabled", false);

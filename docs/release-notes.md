@@ -11,6 +11,10 @@ Datum: 2026-10-29. **Source-only izdanje; nije javno potvrđen bootabilni releas
 - Linux hardware JSON, stvarni benchmark collector za ciljnu sesiju i fixture testovi.
 - zram/journald profili sa sačuvanim originalima i eksplicitnim rollback-om, bez gašenja essential servisa.
 - Opcioni compatibility CLI/GTK center i ograničen privilegovani helper; korisnički Wine prefixes i reversible removal.
+- `nova-performance status` (read-only, bez roota), hardverski uslovljen RAM profil: 50% zram pool i `vm.swappiness`/`vm.page-cluster` drop-in samo kad mašina prijavi ≤1,5 GB i `nova-benchmark`/`/proc/swaps` pokaže aktivan zram; žive vrednosti se zapisuju i vraćaju rollback-om.
+- Firefox memorija: RAM cache ograničen na 32 MiB, hardware video decode isključen za r600/pre-AVX2, unload pozadinskih tabova eksplicitan; sve kao `pref`, nikako `lockPref`.
+- Windows 11 sloj: 46x32 caption polje, 2 px fokus prsten, accent podvlačenje fokusanog polja, ravni treeview headeri s separatorima, sidebar i infobar površine, scrollbar thumb koji se zadebljava pod pointerom, crveni close hover u CSD-u, Super+strelice za snap i Super+Shift+strelice za premještanje između monitora.
+- `nova-benchmark` sada prijavljuje PSS i RSS rollup po imenu procesa, swap/`/dev/zram*` uređaje s izmjerenim lz4 omjerom i CPU po procesu u istom petosekundnom prozoru.
 - Lokalni first-boot vodič; Software Manager, updater i package manager ostaju upstream.
 - `pref()` defaulti za Firefox (dva content procesa, ograničen page-cache, bez GPU akceleracije i feedova) i first-boot koji ispod 1,6 GB šalje obaveštenje umesto da diže pregledač; stranica dobrodošlice ostaje u meniju.
 - Panel u Windows 11 rasporedu: centrirana grupa meni/pokretači/prozori, 48 px, ikonice bez natpisa, dvoredni sat; tema sa 4 px kontrolama, 8 px flyout uglima, obojenom selekcijom i zaobljenim naslovnom trakom (zaobljivanje zavisi od XFWM podrške).
@@ -20,7 +24,7 @@ Datum: 2026-10-29. **Source-only izdanje; nije javno potvrđen bootabilni releas
 ## Poznata ograničenja
 
 1. Jedna slika (`nova-build-8`) je izgrađena i viđena kako u emulaciji diže live XFCE desktop, BIOS i UEFI putanjom, sa 4 GB i sa 1 GB. Instalacija na disk, pravi hardver i Secure Boot nisu potvrđeni. Promene u ovoj listi (panel, CSS, Firefox defaulti, first-boot) nisu još nigde renderovane — strukturne provere i bash simulacije jesu, vizuelna i memorijska verifikacija tek dolaze sa sledećim build-om i boot capture-om.
-2. 1 GB je ispod zvaničnog Mint minimuma 2 GB. Idle 250–400 MB i browser usability nisu izmereni. Installer može zahtevati više memorije.
+2. 1 GB je ispod zvaničnog Mint minimuma 2 GB. Idle 250–400 MB i browser usability nisu izmereni. Installer može zahtevati više memorije. „Sve ispod 500 MB s pokrenutim Firefoxom“ se ne tvrdi i ne može se postići podešavanjem — Firefox sam traži više stotina MB, a mjerenje odlučuje i koliko sesija stvarno košta.
 3. CPU mora podržavati amd64; dijagnostika proverava LM/NX/SSE2, ali pojedinačni browseri/aplikacije mogu zahtevati dodatne instrukcije. Nema 32-bit Nova ISO-a.
 4. Secure Boot nije testiran; očuvan upstream boot materijal nije dokaz funkcionalnosti.
 5. XFCE monitor/wallpaper migracija i GTK tema zahtevaju stvarni UI test. First-boot HTML je DOM-smoke testiran, ne vizuelno potvrđen zbog skrivenog browser viewport-a.
@@ -31,6 +35,8 @@ Datum: 2026-10-29. **Source-only izdanje; nije javno potvrđen bootabilni releas
 10. Skriptovan build i tačan package lock nisu bit-identična reproducibilnost. Potrebne su arhivirane verzije/snapshot i ponovljeni hash testovi.
 11. Firmware/proprietary sadržaj nasleđenog ISO-a nije konačno pravno auditovan; copyright inventory je pomoć, ne approval. Upstream oznake i zahtevi za objavu odgovarajućeg izvornog koda moraju se poštovati.
 12. Nema posebne sertifikacije CPU/GPU/Wi-Fi uređaja, disk instalacije niti fizičkog USB testa.
+13. Low-memory profil (50% zram pool, `vm.swappiness=140`, `vm.page-cluster=0`) i `nova-performance status` nikad nisu izvršeni na živoj Linux mašini; testirani su samo sintaksa bash-a i ugovori u fixture testovima. `sysctl -p` zahteva procps, a `smaps_rollup` zahteva kernel 4.14+.
+14. Novi CSS selectori, 46x32 caption polje i Super+Shift+strelice nisu renderovani ni pritisnuti u pravom GTK/XFCE okruženju; nepoznate xfwm4 akcije se tiho ignorišu, ne javljaju grešku.
 
 ## Spremnost faza
 

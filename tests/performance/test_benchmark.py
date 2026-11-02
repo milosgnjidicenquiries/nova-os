@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import subprocess
 import tempfile
+import types
 import unittest
 from unittest import mock
 
@@ -55,7 +56,7 @@ class BenchmarkTests(unittest.TestCase):
         self.assertAlmostEqual(result["sample_seconds"], 5.1)
         self.assertEqual(result["busy_percent"], 50)
 
-    def test_process_rss_and_exit_race(self):
+    def test_process_memory_and_exit_race(self):
         for pid, status in (("10", "Name:\tsmall\nVmRSS:\t100 kB\n"),
                             ("11", "Name:\tlarge\nVmRSS:\t900 kB\n"),
                             ("12", "Name:\tkernel-thread\n")):
@@ -64,7 +65,7 @@ class BenchmarkTests(unittest.TestCase):
             (directory / "status").write_text(status, encoding="ascii")
         (self.proc / "99").mkdir()  # Process disappeared before its status was opened.
         (self.proc / "not-a-pid").mkdir()
-        result = benchmark.process_rss(self.proc)
+        result = benchmark.process_memory(self.proc)
         self.assertEqual([item["pid"] for item in result["processes"]], [11, 10, 12])
         self.assertEqual(result["processes"][0]["rss_bytes"], 900 * 1024)
         self.assertIsNone(result["processes"][2]["rss_bytes"])
@@ -74,12 +75,12 @@ class BenchmarkTests(unittest.TestCase):
         (self.proc / "10").mkdir()
         with mock.patch.object(Path, "read_text", side_effect=OSError(5, "Input/output error")), \
                 self.assertRaises(OSError):
-            benchmark.process_rss(self.proc)
+            benchmark.process_memory(self.proc)
 
     def test_process_permissions_are_reported_as_skipped(self):
         (self.proc / "10").mkdir()
         with mock.patch.object(Path, "read_text", side_effect=PermissionError(13, "Permission denied")):
-            result = benchmark.process_rss(self.proc)
+            result = benchmark.process_memory(self.proc)
         self.assertEqual(result["processes"], [])
         self.assertEqual(result["skipped_races_or_permissions"], 1)
 
@@ -101,12 +102,16 @@ class BenchmarkTests(unittest.TestCase):
         with mock.patch.object(benchmark.platform, "system", return_value="Linux"), \
                 mock.patch.object(benchmark, "read_memory", side_effect=ValueError("Missing MemAvailable")), \
                 mock.patch.object(benchmark, "sample_cpu", side_effect=FileNotFoundError("Missing proc/stat")), \
-                mock.patch.object(benchmark, "process_rss", return_value={"processes": []}), \
+                mock.patch.object(benchmark, "read_swap", side_effect=ValueError("Malformed swaps line")), \
+                mock.patch.object(benchmark, "read_cpu_ticks", side_effect=OSError("proc vanished")), \
+                mock.patch.object(benchmark, "process_memory", return_value={"processes": []}), \
                 mock.patch.object(benchmark, "boot_timing", return_value={"status": "unavailable"}):
             result = benchmark.collect()
         self.assertIsNone(result["memory"])
         self.assertIsNone(result["cpu"])
-        self.assertEqual(set(result["errors"]), {"memory", "cpu"})
+        self.assertIsNone(result["swap"])
+        self.assertIsNone(result["process_cpu"])
+        self.assertEqual(set(result["errors"]), {"memory", "cpu", "swap", "process_cpu"})
 
     def test_nonlinux_rejected_before_proc_reads(self):
         with mock.patch.object(benchmark.platform, "system", return_value="Windows"), \
@@ -121,6 +126,123 @@ class BenchmarkTests(unittest.TestCase):
         with mock.patch.object(benchmark, "collect", return_value=observation):
             self.assertEqual(benchmark.main(["--output", str(output)]), 0)
         self.assertEqual(json.loads(output.read_text(encoding="utf-8")), observation)
+
+
+class MemoryBudgetTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.proc = Path(temporary.name)
+        self.sys = self.proc / "sys-block"
+
+    def test_swap_devices_and_measured_zram_ratio(self):
+        (self.proc / "meminfo").write_text(
+            "MemTotal: 1024000 kB\nSwapTotal: 512000 kB\nSwapFree: 400000 kB\nSwapCached: 100 kB\n",
+            encoding="ascii")
+        (self.proc / "swaps").write_text(
+            "Filename\t\t\t\tType\t\tSize\t\tUsed\t\tPriority\n"
+            "/dev/zram0                partition\t512000\t\t112000\t\t100\n", encoding="ascii")
+        device = self.sys / "zram0"
+        device.mkdir(parents=True)
+        for name, value in (("disksize", "524288000"), ("orig_data_size", "900000"),
+                            ("compr_data_size", "300000")):
+            (device / name).write_text(value, encoding="ascii")
+        result = benchmark.read_swap(self.proc, self.sys)
+        self.assertEqual(result["fields"]["SwapTotal"], 512000 * 1024)
+        self.assertEqual(result["devices"][0]["used_bytes"], 112000 * 1024)
+        self.assertEqual(result["devices"][0]["zram"]["compression_ratio"], 3.0)
+
+    def test_missing_swap_counters_are_omitted_not_zeroed(self):
+        (self.proc / "meminfo").write_text("MemTotal: 1024000 kB\n", encoding="ascii")
+        (self.proc / "swaps").write_text("Filename\tType\tSize\tUsed\tPriority\n", encoding="ascii")
+        result = benchmark.read_swap(self.proc, self.sys)
+        self.assertEqual(result["devices"], [])
+        self.assertEqual(result["fields"], {})
+
+    def test_malformed_swap_line_is_an_error(self):
+        (self.proc / "meminfo").write_text("MemTotal: 1024000 kB\n", encoding="ascii")
+        (self.proc / "swaps").write_text("Filename\tType\tSize\tUsed\tPriority\n/dev/zram0 partition\tlots\tnope\t100\n",
+                                         encoding="ascii")
+        with self.assertRaises(ValueError):
+            benchmark.read_swap(self.proc, self.sys)
+
+    def test_pss_is_read_when_available(self):
+        directory = self.proc / "42"
+        directory.mkdir()
+        (directory / "status").write_text("Name:\txfce4-panel\nVmRSS:\t60000 kB\n", encoding="ascii")
+        (directory / "smaps_rollup").write_text("Rss:\t  60000 kB\nPss:\t  21000 kB\n", encoding="ascii")
+        self.assertEqual(benchmark.process_memory(self.proc)["processes"][0]["pss_bytes"], 21000 * 1024)
+
+    def test_pss_absence_is_null_and_a_malformed_line_is_an_error(self):
+        directory = self.proc / "42"
+        directory.mkdir()
+        self.assertIsNone(benchmark.process_pss(directory))  # No smaps_rollup at all.
+        (directory / "smaps_rollup").write_text("Rss:\t5 kB\n", encoding="ascii")
+        self.assertIsNone(benchmark.process_pss(directory))  # A rollup without Pss.
+        (directory / "smaps_rollup").write_text("Pss:\tnot-a-number kB\n", encoding="ascii")
+        with self.assertRaises(ValueError):
+            benchmark.process_pss(directory)
+        with mock.patch.object(benchmark.Path, "read_text", side_effect=PermissionError(13, "denied")):
+            self.assertIsNone(benchmark.process_pss(directory))
+
+    def test_ticks_ignore_spaces_and_parentheses_in_comm(self):
+        directory = self.proc / "7"
+        directory.mkdir()
+        fields = " ".join(["S"] + ["0"] * 10 + ["50", "25"] + ["0"] * 30)
+        (directory / "stat").write_text(f"7 (weird (name) helper) {fields}\n", encoding="ascii")
+        (self.proc / "8").mkdir()  # No stat file: the process disappeared.
+        self.assertEqual(benchmark.read_cpu_ticks(self.proc), {7: 75})
+
+    def test_cpu_report_measures_the_window_it_was_given(self):
+        result = benchmark.cpu_report({1: 100, 2: 500}, {1: 350, 2: 500, 3: 10}, 5.0, 100)
+        self.assertEqual(result["window_seconds"], 5.0)
+        self.assertEqual(result["top"][0], {"pid": 1, "cpu_percent_of_one_core": 50.0})
+        self.assertEqual(result["processes_started_during_window"], 1)
+        self.assertEqual(result["total_percent_of_one_core"], 50.0)
+
+    def test_cpu_report_rejects_reversed_counters_and_empty_window(self):
+        with self.assertRaises(ValueError):
+            benchmark.cpu_report({1: 100}, {1: 90}, 5.0, 100)
+        with self.assertRaises(ValueError):
+            benchmark.cpu_report({1: 1}, {1: 2}, 0, 100)
+        with self.assertRaises(ValueError):
+            benchmark.cpu_report({1: 1}, {1: 2}, 5.0, 0)
+
+    def test_rollup_groups_by_kernel_name_and_keeps_both_totals(self):
+        snapshot = {"processes": [
+            {"pid": 1, "name": "firefox", "rss_bytes": 300 * 1024, "pss_bytes": 200 * 1024},
+            {"pid": 2, "name": "firefox", "rss_bytes": 200 * 1024, "pss_bytes": 150 * 1024},
+            {"pid": 3, "name": "xfdesktop", "rss_bytes": 60 * 1024, "pss_bytes": 40 * 1024},
+            {"pid": 4, "name": None, "rss_bytes": None, "pss_bytes": None}]}
+        result = benchmark.memory_rollup(snapshot)
+        self.assertEqual([group["name"] for group in result["groups"]], ["firefox", "xfdesktop", "unknown"])
+        self.assertEqual(result["groups"][0]["processes"], 2)
+        self.assertEqual(result["total_rss_bytes"], 560 * 1024)
+        self.assertEqual(result["total_pss_bytes"], 390 * 1024)
+
+    def test_clock_resolution_failure_is_not_a_fake_percentage(self):
+        with mock.patch.object(benchmark, "os", types.SimpleNamespace()):
+            with self.assertRaises(ValueError):
+                benchmark.clock_ticks_per_second()
+        with mock.patch.object(benchmark, "os", types.SimpleNamespace(sysconf=lambda name: 0)):
+            with self.assertRaises(ValueError):
+                benchmark.clock_ticks_per_second()
+
+    def test_collect_reports_both_new_sections(self):
+        snapshot = {"processes": [{"pid": 1, "name": "firefox", "rss_bytes": 10, "pss_bytes": 5}]}
+        with mock.patch.object(benchmark.platform, "system", return_value="Linux"), \
+                mock.patch.object(benchmark, "read_memory", return_value={"total_bytes": 1}), \
+                mock.patch.object(benchmark, "sample_cpu", return_value={"busy_percent": 1.0}), \
+                mock.patch.object(benchmark, "process_memory", return_value=snapshot), \
+                mock.patch.object(benchmark, "read_swap", return_value={"fields": {}, "devices": []}), \
+                mock.patch.object(benchmark, "read_cpu_ticks", side_effect=({1: 0}, {1: 100})), \
+                mock.patch.object(benchmark, "clock_ticks_per_second", return_value=100), \
+                mock.patch.object(benchmark.time, "monotonic", side_effect=(100.0, 105.0)), \
+                mock.patch.object(benchmark, "boot_timing", return_value={"status": "unavailable"}):
+            result = benchmark.collect()
+        self.assertEqual(result["memory_rollup"]["total_pss_bytes"], 5)
+        self.assertEqual(result["process_cpu"]["top"], [{"pid": 1, "cpu_percent_of_one_core": 20.0}])
+        self.assertEqual(result["errors"], {})
 
 
 if __name__ == "__main__":

@@ -1,0 +1,8 @@
+# Debian zram-tools reads this file as /etc/default/zramswap.
+# nova-performance installs this variant instead of zramswap only when the running
+# machine reports 1.5 GB of RAM or less. A zram pool is a limit, not an allocation: it
+# costs memory as it fills, and on a 1 GB target the larger pool is what lets a browser
+# and the desktop session coexist.
+ALGO=lz4
+PERCENT=50
+PRIORITY=100

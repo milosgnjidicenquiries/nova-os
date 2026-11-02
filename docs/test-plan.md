@@ -57,7 +57,9 @@ nova-benchmark --output benchmark-idle-2.json
 nova-benchmark --output benchmark-idle-3.json
 ```
 
-Zabeležiti MemTotal, MemAvailable i razliku u MiB; razlika je standardna procena zauzete memorije, ne zbir RSS-a. RSS shared pages mogu biti prebrojane. CPU uzorak je agregat za 5 sekundi. `systemd-analyze time` nije ukupno vreme do spremnog desktopa: zasebno meriti boot/login/otvaranje Thunar-a spoljnim štopericom.
+Zabeležiti MemTotal, MemAvailable i razliku u MiB; razlika je standardna procena zauzete memorije, ne zbir RSS-a. `memory_rollup` daje i PSS, koji deli shared stranice između procesa i zato je poštena cena uklanjanja procesa. `process_cpu.top` je procenat jednog jezgra po procesu u istom petosekunodom prozoru; agregat CPU je isti prozor. `swap.devices[].zram.compression_ratio` je izmjeren omjer lz4, ne pretpostavka. CPU uzorak je agregat za 5 sekundi. `systemd-analyze time` nije ukupno vreme do spremnog desktopa: zasebno meriti boot/login/otvaranje Thunar-a spoljnim štopericom.
+
+Pre i posle `sudo nova-performance apply` snimiti `nova-performance status` i `nova-benchmark`; uporediti `MemAvailable`, `SwapCached`, broj `/dev/zram*` uređaja i `process_cpu` sesije. Bez ta dva para izlaza nema tvrdnje da veći pool ili `vm.swappiness=140` nešto poboljšavaju.
 
 Zatim isto pri otvaranju browsera/stranice, PDF-a i lakog legacy Windows programa. Sačuvati `zramctl`, `swapon --show`, `systemctl --failed`, `journalctl -b -p warning`, kernel i package lock. Logovi mogu sadržati privatne podatke; pregledati pre deljenja.
 

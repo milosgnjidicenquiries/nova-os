@@ -52,8 +52,9 @@ GTK3 = Template("""@define-color theme_bg_color $bg;
 * {
   outline-color: alpha($fg, 0.8);
   outline-style: solid;
-  outline-width: 1px;
-  outline-offset: -2px;
+  outline-width: 2px;
+  outline-offset: -4px;
+  -gtk-outline-radius: 2px;
   -gtk-secondary-caret-color: $accent;
 }
 .background { background-color: $bg; color: $fg; }
@@ -94,9 +95,11 @@ button, entry, spinbutton:not(.vertical), combobox > box > button {
 button:hover { background-color: $hover; }
 button:active, button:checked { background-color: $pressed; border-color: alpha($fg, 0.4); }
 button:disabled, entry:disabled { background-color: $disabled_bg; color: $disabled_fg; }
-button:focus-visible, entry:focus, spinbutton:focus { border-color: alpha($fg, 0.6); }
+button:focus-visible, entry:focus, spinbutton:focus { border-color: alpha($fg, 0.45); }
 button.suggested-action { background-color: $accent; color: $selected; border-color: $accent; }
 button.suggested-action:hover { background-color: $accent_hover; }
+button.default { background-color: $accent; color: $selected; border-color: $accent; }
+button.default:hover { background-color: $accent_hover; }
 button.destructive-action { background-color: #c64141; border-color: #c64141; color: #ffffff; }
 button.flat { border-color: transparent; background-color: transparent; }
 button.flat:hover { background-color: $hover; }
@@ -110,11 +113,15 @@ button image { padding: 0; }
   border-top-right-radius: 4px; border-bottom-right-radius: 4px;
 }
 entry { background-color: $base; caret-color: $fg; }
+// Windows 11 marks a focused text box with an accent underline instead of a glow.
+entry:focus { box-shadow: inset 0 -2px 0 $accent; }
 entry image { color: $muted; }
 entry.error { border-color: @error_color; }
 entry.warning { border-color: @warning_color; }
 spinbutton entry { border: 0; background-color: $base; }
-spinbutton button { min-width: 16px; min-height: 16px; padding: 0 4px; border: 0; }
+spinbutton button { min-width: 16px; min-height: 16px; padding: 0 4px; border: 0; color: $muted; }
+spinbutton button.up { border-bottom: 1px solid $border; }
+spinbutton button:hover { color: $fg; background-color: $hover; }
 combobox arrow { -gtk-icon-source: -gtk-icontheme("pan-down-symbolic"); min-width: 16px; min-height: 16px; }
 
 check, radio {
@@ -146,6 +153,10 @@ switch:checked slider { background-color: $selected; }
 switch:disabled { opacity: 0.55; }
 
 notebook > header { background-color: $bg; padding: 2px; }
+notebook > header.top { border-bottom: 1px solid $border; }
+notebook > header.bottom { border-top: 1px solid $border; }
+notebook > header.left { border-right: 1px solid $border; }
+notebook > header.right { border-left: 1px solid $border; }
 notebook > header > tabs > tab {
   padding: 6px 12px; margin: 1px; border: 1px solid transparent; border-radius: 4px;
   font-weight: normal;
@@ -162,7 +173,20 @@ row { padding: 6px; }
 row:hover { background-color: $hover; }
 row:selected:hover { background-color: alpha($accent, 0.32); color: $fg; }
 treeview { -GtkTreeView-horizontal-separator: 4; -GtkTreeView-vertical-separator: 4; }
-treeview.view header button { border-radius: 0; background-color: $bg; }
+// File-manager column headers read as a flat strip with dividers, like Windows 11 Explorer.
+treeview.view header button {
+  padding: 6px 8px; border: 0; border-right: 1px solid $border;
+  border-radius: 0; background-color: $bg; color: $muted;
+}
+treeview.view header button:last-child { border-right: 0; }
+treeview.view header button:hover { background-color: $hover; color: $fg; }
+treeview.view header button sortindicator, treeview.view header button indicator {
+  color: $muted; -gtk-icon-size: 12px;
+}
+sidebar, .sidebar { background-color: $bg; }
+sidebar > row { padding: 5px 8px; margin: 1px 4px; border-radius: 4px; }
+sidebar row:hover { background-color: $hover; }
+sidebar row:selected { background-color: alpha($accent, $tint); color: $fg; }
 rubberband, .rubberband {
   border: 1px solid $accent; background-color: alpha($accent, 0.16);
 }
@@ -175,6 +199,7 @@ menubar { background-color: $bg; padding: 2px; }
 menuitem { padding: 7px 12px; border-radius: 4px; }
 menuitem:hover { background-color: $hover; color: $fg; }
 menuitem:disabled { color: $disabled_fg; }
+menuitem accelerator { color: $muted; }
 menuitem arrow { min-width: 16px; min-height: 16px; -gtk-icon-source: -gtk-icontheme("pan-end-symbolic"); }
 menu separator { margin: 4px 0; }
 toolbar, .toolbar { background-color: $bg; padding: 4px; }
@@ -187,10 +212,16 @@ headerbar:backdrop { background-color: $inactive_bg; color: $inactive_fg; }
 headerbar .title { font-weight: bold; }
 headerbar .subtitle { color: $muted; font-size: smaller; }
 headerbar button { min-height: 24px; padding: 2px 8px; }
+// Windows 11 turns the caption close button red; the shape stays a flat square.
+headerbar button.titlebar.close:hover, headerbar button.close:hover,
+window decoration button.close:hover { background-color: #c42b1c; border-color: #c42b1c; color: #ffffff; }
+headerbar button.titlebar.close:active, headerbar button.close:active { background-color: #ac2718; }
 statusbar { padding: 3px; }
-infobar { background-color: $hover; color: $fg; }
-infobar.error { border-bottom: 2px solid @error_color; }
-infobar.warning { border-bottom: 2px solid @warning_color; }
+infobar { background-color: $hover; color: $fg; border-radius: 0; }
+infobar > revealer > box { padding: 8px 12px; border-bottom: 1px solid $border; }
+infobar.error > revealer > box { background-color: alpha(@error_color, 0.14); border-bottom: 2px solid @error_color; }
+infobar.warning > revealer > box { background-color: alpha(@warning_color, 0.14); border-bottom: 2px solid @warning_color; }
+infobar.question > revealer > box, infobar.other > revealer > box { background-color: alpha($accent, $tint); }
 
 scrollbar { background-color: transparent; }
 scrollbar trough { background-color: transparent; border: 0; }
@@ -200,6 +231,9 @@ scrollbar slider {
 }
 scrollbar.vertical slider { min-height: 32px; }
 scrollbar.horizontal slider { min-width: 32px; }
+// The thumb thickens under the pointer instead of the trough changing size.
+scrollbar.vertical slider:hover { min-width: 8px; }
+scrollbar.horizontal slider:hover { min-height: 8px; }
 scrollbar slider:hover { background-color: alpha($fg, 0.55); }
 scrollbar slider:active { background-color: $accent; }
 scrollbar button { min-width: 0; min-height: 0; padding: 0; border: 0; }
@@ -252,6 +286,11 @@ window.maximized decoration, window.fullscreen decoration { border-radius: 0; bo
 #tasklist button label { font-size: smaller; }
 #whiskermenu-window { background-color: $base; color: $fg; border-radius: 8px; }
 #whiskermenu-window entry { margin: 6px; }
+#whiskermenu-window button { border: 0; background-color: transparent; border-radius: 4px; }
+#whiskermenu-window button:hover { background-color: $hover; }
+#whiskermenu-window button:checked, #whiskermenu-window button:active { background-color: alpha($accent, $tint); }
+#whiskermenu-window treeview { background-color: $base; color: $fg; }
+#whiskermenu-window treeview:selected { background-color: alpha($accent, $tint); color: $fg; }
 XfdesktopIconView.view {
   background-color: transparent; color: #ffffff;
   -XfdesktopIconView-label-alpha: 60;
@@ -287,8 +326,10 @@ style "nova-default" {
   text[SELECTED] = "$selected"
   text[INSENSITIVE] = "$disabled_fg"
   GtkWidget::focus-line-width = 1
-  GtkWidget::focus-padding = 2
+  GtkWidget::focus-padding = 0
   GtkButton::default-border = { 0, 0, 0, 0 }
+  GtkButton::interior-focus = 1
+  GtkButton::default-outstanding = 0
   GtkButton::inner-border = { 4, 4, 2, 2 }
   GtkButton::child-displacement-x = 0
   GtkButton::child-displacement-y = 0
@@ -303,6 +344,8 @@ style "nova-default" {
   GtkCheckButton::indicator-spacing = 4
   GtkMenu::horizontal-padding = 4
   GtkMenu::vertical-padding = 4
+  GtkMenuItem::arrow-scaling = 0.7
+  GtkMenuItem::horizontal-padding = 4
   GtkTreeView::horizontal-separator = 4
   GtkTreeView::vertical-separator = 4
 }
@@ -375,6 +418,19 @@ def rectangle(pixels, x0, y0, x1, y1, color):
     line(pixels, x1, y0, x1, y1, color)
 
 
+def center_in(pixels, width, color):
+    """Widen a drawn glyph strip to a caption-button cell, keeping the art centred."""
+    source = len(pixels[0])
+    if width == source:
+        return pixels
+    offset = (width - source) // 2
+    widened = [[color] * width for _ in range(len(pixels))]
+    for y, row in enumerate(pixels):
+        for x, value in enumerate(row):
+            widened[y][offset + x] = value
+    return widened
+
+
 def frame_assets(theme, p):
     dest = f"themes/{theme}/xfwm4/"
     for state in ("active", "inactive"):
@@ -413,44 +469,45 @@ def frame_assets(theme, p):
                 if button == "close" and state in ("prelight", "pressed"):
                     bg = "#d94a48" if state == "prelight" else "#b83b39"
                     fg = "#ffffff"
-                pixels = canvas(36, 32, bg)
+                glyph = canvas(36, 32, bg)
                 if button == "close":
-                    for offset in (0, 1):
-                        line(pixels, 12, 11 + offset, 22, 21 + offset, fg)
-                        line(pixels, 22, 11 + offset, 12, 21 + offset, fg)
+                    for step in (0, 1):
+                        line(glyph, 12, 11 + step, 22, 21 + step, fg)
+                        line(glyph, 22, 11 + step, 12, 21 + step, fg)
                 elif button == "hide":
-                    line(pixels, 12, 20, 23, 20, fg)
-                    line(pixels, 12, 21, 23, 21, fg)
+                    line(glyph, 12, 20, 23, 20, fg)
+                    line(glyph, 12, 21, 23, 21, fg)
                 elif button == "maximize":
                     if toggled:
-                        rectangle(pixels, 15, 11, 24, 18, fg)
+                        rectangle(glyph, 15, 11, 24, 18, fg)
                         for y in range(14, 22):
                             for x in range(12, 22):
-                                pixels[y][x] = bg
-                        rectangle(pixels, 12, 14, 21, 21, fg)
-                        line(pixels, 13, 15, 20, 15, fg)
+                                glyph[y][x] = bg
+                        rectangle(glyph, 12, 14, 21, 21, fg)
+                        line(glyph, 13, 15, 20, 15, fg)
                     else:
-                        rectangle(pixels, 12, 11, 23, 22, fg)
-                        line(pixels, 13, 12, 22, 12, fg)
+                        rectangle(glyph, 12, 11, 23, 22, fg)
+                        line(glyph, 13, 12, 22, 12, fg)
                 elif button == "menu":
                     for y in (12, 16, 20):
-                        line(pixels, 12, y, 23, y, fg)
+                        line(glyph, 12, y, 23, y, fg)
                 elif button == "shade":
-                    line(pixels, 12, 11, 23, 11, fg)
+                    line(glyph, 12, 11, 23, 11, fg)
                     if toggled:
-                        line(pixels, 13, 15, 18, 20, fg)
-                        line(pixels, 18, 20, 23, 15, fg)
+                        line(glyph, 13, 15, 18, 20, fg)
+                        line(glyph, 18, 20, 23, 15, fg)
                     else:
-                        line(pixels, 13, 20, 18, 15, fg)
-                        line(pixels, 18, 15, 23, 20, fg)
+                        line(glyph, 13, 20, 18, 15, fg)
+                        line(glyph, 18, 15, 23, 20, fg)
                 elif button == "stick":
-                    rectangle(pixels, 15, 11, 21, 15, fg)
-                    line(pixels, 13, 17, 23, 17, fg)
-                    line(pixels, 18, 15, 18, 23, fg)
+                    rectangle(glyph, 15, 11, 21, 15, fg)
+                    line(glyph, 13, 17, 23, 17, fg)
+                    line(glyph, 18, 15, 18, 23, fg)
                     if toggled:
-                        line(pixels, 12, 23, 24, 11, fg)
+                        line(glyph, 12, 23, 24, 11, fg)
                 suffix = "toggled-" if toggled else ""
-                xpm(dest + f"{button}-{suffix}{state}.xpm", pixels)
+                # 46x32 is the Windows 11 caption cell; the glyphs stay at their drawn size.
+                xpm(dest + f"{button}-{suffix}{state}.xpm", center_in(glyph, 46, bg))
     emit(dest + "themerc", f"""active_text_color={p['fg']}
 inactive_text_color={p['inactive_fg']}
 active_text_shadow_color={p['bg']}
