@@ -59,8 +59,8 @@ odbijen drugi fingerprint, odbijen izmenjen manifest i payload). **To su provere
 | 41350074375 | 39m55s | delimičan (UEFI boot test) | Koraci zeleni, ali od 25 kadrova sačuvana su **samo 2** (015 i 023) i oba prikazuju **GRUB 2.12 EFI meni** — dokaz da EFI boot slika i GRUB-EFI rade, bez dokaza o desktopu. Uzrok mirovanja: `grub.cfg` nema `set timeout` (nasleđeno iz Mint-a). Harness je odbacivao monitor odgovor pa je svaki neuspeo kadar bio neobjašnjiv. |
 | 41350648294 | 1h13m | **1 GB desktop viđen** | BIOS/TCG sa `-m 1024`. Kadri 008–013: live XFCE sa dobrodošlicom, sat 21:55 → 22:01. Od kadra 016 nadalje ujednačena crnina (pixel-identični kadrovi) — najverovatnije DPMS gašenje, ali harness ne budi ekran pa se ne tvrdi ništa. Snimci: `docs/evidence/boot-bios-1024mb-run41350648294/`. |
 | 41354005351 | 1h14m | bez novog dokaza | UEFI sa `--enter-at 120,300`. Sačuvana **opet samo 2** od 25 kadrova, i dalje GRUB meni. Log konačno pokazuje uzrok: `(qemu)` bez greške = komanda nikad izvršena. QEMU dozvoljava jednog monitor klijenta, pa konekcija-po-komandi baca i `screendump` i `sendkey`. |
-| 41357268299 | — | u toku | BIOS `-m 1024` sa Enter-om na 900/1200/1500/1800 s, da se vidi da li se desktop posle gašenja ekrana vraća. |
-| 41361076620 | — | u redu | UEFI sa ispravljenim monitorom (jedna veza + `info status` rukovanje) i Enter-om na 120/300 s. |
+| 41357268299 | 1h20m56s | **gašenje ≠ rušenje** | BIOS `-m 1024` sa Enter-om na 900/1200/1500/1800 s. Kadar 016 crn, kadar 017 (**desktop se vratio**, sat 23:28), kadar 032 i dalje desktop (sat 23:48). Uzrok: Nova ne isporučuje `xfce4-power-manager.xml`, pa važi nasleđeni Xfce default od ~10 min. Snimci: `docs/evidence/boot-bios-1024mb-run41357268299/`. |
+| 41361076620 | 1h2m14s | **UEFI desktop dokazan** | UEFI/OVMF sa ispravljenim monitorom (jedna veza + `info status` rukovanje) i Enter-om na 120/300 s. Sačuvano **svih 25** kadrova. Kadar 004 = boot splash posle Enter-a, kadar 013 = XFCE desktop sa Nova pozadinom, kadri 015–021 = desktop + Nova dobrodošlica. Snimci: `docs/evidence/boot-uefi-4096mb-run41361076620/`. |
 
 ## Emulirani boot — šta je viđen, a šta nije
 
@@ -68,11 +68,12 @@ Videno na snimcima slike `nova-build-8`: izolinux → kernel → casper → Ligh
 Nova launcherima; prozor Firefox-a sa lokalnom Nova dobrodošlicom (srpski sadržaj, upozorenje o brisanju diska i
 1 GB limitu); sat napreduje između kadrova 6 i 8, dakle sesija radi, ne miruje.
 
-Nije videno i ne tvrdi se: instalacija na disk, ponašanje pri restartu sa diska, Secure Boot, UEFI putanja
-(ovaj run je BIOS režim), izgled Nove GTK/treme u punom obimu, i bilo kakve performanse — TCG emulacija bez KVM-a
+Nije videno i ne tvrdi se: instalacija na disk, ponašanje pri restartu sa diska, Secure Boot, izgled Nove
+GTK/treme u punom obimu, i bilo kakve performanse — TCG emulacija bez KVM-a
 meri brzinu hosta, ne Celerona. Vreme do desktopa (~6 min) **nije** broj koji sme da se citira kao performansa.
+UEFI putanja nije bila viđena u tom run-u (BIOS režim), ali jeste u `41361076620` — do desktopa, detalje niže.
 
-### UEFI emulirani boot (run 41350074375): do GRUB-a, ne i do desktopa
+### UEFI emulirani boot: tri run-a, i konačno desktop (`41361076620`)
 
 `boot_mode=uefi`, 4096 MB, 25 planiranih kadrova. Od toga je **sačuvan samo kadar 015 i 023** (ostali
 `screendump` nisu napravili fajl), i oba pokazuju **isti ekran**: `GNU GRUB version 2.12` meni sa
@@ -107,6 +108,35 @@ Ispravka (`1f5d855`): jedna dugovezna veza nad whole run-om, plus rukovanje `inf
 ako se monitor ne javi, test staje odmah umesto da sat vremena skuplja prazne kadrove. Logika je proverena
 protiv lažnog HMP toka bajtova (deljenog u komade) pre nego što je potrošen još jedan CI sat. Run
 `41361076620` ponavlja UEFI sa tim kodom.
+
+**Run `41361076620` je rešio pitanje: UEFI diže XFCE desktop.** Svih 25 kadrova je sačuvano (monitor fiks radi),
+`sendkey ret` je konačno stigao do gostujućeg sistema, i ekran je prošao od menija do desktopa:
+
+| kadar | UTC | ekran |
+| 001–002 | 23:51–23:52 | `GNU GRUB 2.12` meni, bez odbrojavanja (potvrđuje dijagnozu bez timeout-a) |
+| 003 | 23:53:59 | crno — meni se upravo ugasio, `ret` je poslan u 120 s |
+| 004–007 | 23:54–23:58 | Linux Mint splash logo, dakle kernel i initrd su startovali |
+| 008–011 | 23:59–00:02 | crno (`d4e96a65fd4f`, isti digest kao kod 1 GB gašenja) |
+| 013–014 | 00:04 | **XFCE desktop sa Nova pozadinom „quiet horizon"** — ikone, talasi `#172b42→#2b5270`, XFCE throbber |
+| 015–021 | 00:06–00:12 | desktop + Firefox sa `file:///usr/share/nova/welcome.html`, nepromenjen digest 7 minuta |
+| 022 | 00:13 | crn kadar — DPMS, isto ponašanje kao na 1 GB |
+| 023–025 | 00:14–00:16 | desktop se vratio i ostaje |
+
+`serial.log` to potkrepljuje iz guestove strane: `BdsDxe: starting Boot0001 "UEFI QEMU DVD-ROM"` → `GNU GRUB
+version 2.12` sa listom od šest stavki → ekran se čisti kad stigne Enter.
+
+Dve stvari sme se tvrditi, jedna ne sme:
+- **Sme:** UEFI putanja (`/boot/grub/efi.img` → GRUB-EFI → naš `grub.cfg` → casper → XFCE) funkcioniše na
+  emuliranom UEFI-firmware-u (OVMF), i Nova pozadina/dobrodošlica su stvarno aktivne u toj sesiji.
+- **Sme:** nasleđeni `grub.cfg` bez `set timeout` znači da **UEFI ne startuje sam** — neko mora da pritisne
+  Enter na meniju. To je sada viđeno i sa Enter-om i bez njega (dva run-a su stajala na meniju koliko god
+  dugo niko ništa ne dira).
+- **Ne sme:** da je to dokaz pravog UEFI hardvera, Secure Boot-a ili instalacije na disk. Emulacija je OVMF
+  bez Secure Boot-a, i opet bez KVM-a.
+
+Odluka koja je ostala ista i dalje je otvorena: da li Nova dodaje `set timeout`+`default` u `grub.cfg` da bi
+UEFI mašina ustajala bez ljudskog tastera. Najrizičniji fajl u slici, a promena zahteva potpuni rebuild i
+popravljanje ISO isporuke — ne radi se usput.
 
 ### 1 GB RAM (run 41350648294): desktop ustaje, pa se ekran ugasi
 
@@ -182,8 +212,8 @@ direktorijumom, a ne zbog sadržaja slike.
 ## Nije izvršeno
 
 - **Podizanje na pravom mediju i hardveru:** Secure Boot, fizička mašina, USB stik, BIOS i UEFI boot na hardveru.
-  Emulirani BIOS boot do XFCE desktopa je **viđen** (gore), a emulirani UEFI samo do GRUB menija — ni jedno ni
-  drugo nije dokaz o platformi.
+  I emulirani BIOS i emulirani UEFI (OVMF) su viđeni do XFCE desktopa — UEFI uz jedan pritisnut Enter, jer
+  konfiguracija nema timeout. Ni jedno ni drugo nije dokaz o pravoj platformi.
 - Instalacija na HDD/SSD, particionisanje, disk-only reboot, rollback.
 - Merenja na 1/2/4 GB RAM-a, CPU, Wi-Fi, audio, USB, suspend, stvarni Wine/Steam/Bottles. Live sesija sa 1 GB je
   viđena kako **dostiže desktop i drži ga**, ali bez ijedne otvorene aplikacije osim auto-startovanog Firefox-a,
@@ -196,17 +226,17 @@ direktorijumom, a ne zbog sadržaja slike.
 Slika `nova-build-8` je spojena i proverena na Windows hostu (`_release/nova-os-0.1.0-amd64.iso`, SHA256
 `c0e848b4…01afbb`) i emulirano je viđeno kako diže do XFCE desktopa. Redosled koji preostaje:
 
-1. **UEFI emulirani boot** — prvi pokušaj (`41350074375`) stao je na GRUB meni jer konfiguracija nema timeout,
-   a drugi (`41354005351`) nije stigao ni do menija jer je `sendkey` išao u mrtvu monitor vezu. `41361076620`
-   je treći pokušaj, sa ispravljenom harness vezom i Enter-om na 120 s i 300 s, da se vidi da li ta stavka
-   menija diže desktop.
+1. **UEFI emulirani boot** — rešeno (`41361076620`): uz jedan pritisnut Enter na GRUB meniju diže se XFCE
+   desktop sa Nova pozadinom i dobrodošlicom. Preostala odluka je **product**, ne dijagnostika: da li Nova
+   dodaje `set timeout`+`default` u `boot/grub/grub.cfg` da UEFI mašina ustaje bez ljudskog tastera. To znači
+   izmenu najrizičnijeg fajla u slici, novi rebuild i nove delove ISO-a, pa se ne radi bez izričite odluke.
 2. **Da li je crn ekran posle 10. minuta gašenje ili nešto gore** — rešeno (`41357268299`): sesija preživi,
    ekran se ugasi po DPMS-u i vrati se na taster. Preostaje samo odluka da li Nova treba da promeni taj
    nasleđeni default; sam default je ponašanje koje ima i Windows, pa se menja samo ako korisnik traži drugačije.
 3. **USB + fizičko podizanje.** Ručno pisanje proverenim image writer-om (Rufus DD mode ili Ventoy), bez
    automatizovanog `dd`; uputstvo i provera heša su u `docs/installation-guide.md`, korak 2. Zahteva USB od 8 GB+
    koji korisnik mora fizički da priključi — na ovom hostu trenutno nema nijedan USB uređaj.
-4. **Instalacija na testni disk** i proverа reboot-a sa diska, pa tek onda `nova-hardware` i benchmark na 1 GB.
+4. **Instalacija na testni disk** i provera reboot-a sa diska, pa tek onda `nova-hardware` i benchmark na 1 GB.
 
 Performanse se i dalje ne mere emulacijom; pravi 1 GB test traži fizički Celeron ili mašinu sa uključenim VT-x-om.
 

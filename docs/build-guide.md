@@ -65,9 +65,10 @@ Nasleđeni initrd naziv (`initrd`, `initrd.lz` ili `initrd.gz`) i putanja se oč
 **UEFI strana nema to svojstvo.** `/boot/grub/grub.cfg` (989 bajtova, kopiran nepromenjen) ne sadrži nijednu
 `set timeout` liniju, a `/boot/grub/x86_64-efi/grub.cfg` (254 bajta) samo `insmod`-uje particione module i
 `source`-uje grub.cfg. GRUB bez timeout-a čeka tastaturu beskonačno, pa se UEFI boot zaustavlja na meniju dok
-neko ne pritisne Enter — dokazano emulacijom (run 41350074375) i istom veličinom fajla u izvornoj Mint slici,
-dakle nasleđeno a ne Nova greška. Dodavanje timeout-a znači menjanje najrizičnijeg fajla u slici i za sada se
-namerno ne radi; boot test harness zato ima `--enter-at` koji šalje `sendkey ret`.
+neko ne pritisne Enter — viđeno u emulaciji (`41350074375` stoji na meniju, `41361076620` čeka 120 s pa diže
+desktop), i potkrepljeno istom veličinom fajla u izvornoj Mint slici, dakle nasleđeno a ne Nova greška.
+Dodavanje timeout-a znači menjanje najrizičnijeg fajla u slici i za sada se namerno ne radi; boot test harness
+zato ima `--enter-at` koji šalje `sendkey ret`.
 
 Mint 22.1 Xfce u `casper/` nema `filesystem.manifest-desktop`: spisak paketa za uklanjanje pri instalaciji je u
 `filesystem.manifest-remove` (128 stavki, samo nazivi), a `filesystem.manifest` je tabom razdvojen. `finalize-tree.py`

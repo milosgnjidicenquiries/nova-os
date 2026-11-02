@@ -3,15 +3,17 @@
 Izgrađen je **strukturalno proveren** ISO (draft release `nova-build-8`, 3.134.521.344 bajta, SHA256
 `c0e848b44dc14209747d5bb69386cb21b8a2bdecaa28c1ed637c73488b01afbb`).
 
-**Dokazano:** slika se podiže do live XFCE desktopa — snimci ekrana u `docs/evidence/boot-bios-4096mb-run41345675650/`
-i `docs/evidence/boot-bios-1024mb-run41350648294/` (Legacy BIOS, QEMU TCG, prvo sa 4 GB pa sa **1 GB RAM-a**).
-Vidi se splash, zatim desktop sa panelom, satom i Nova dobrodošlicom iz `/usr/share/nova/welcome.html`. Sa 1 GB
-je desktop viđen kroz kadrove u kojima sat napreduje 21:55 → 22:01, pa je i sam memory budget live sesije
-izvodljiv — bez ijedne otvorene aplikacije preko auto-startovanog Firefox-a.
+**Dokazano:** slika se podiže do live XFCE desktopa — snimci ekrana u `docs/evidence/boot-bios-4096mb-run41345675650/`,
+`docs/evidence/boot-bios-1024mb-run41350648294/` (Legacy BIOS, QEMU TCG, prvo sa 4 GB pa sa **1 GB RAM-a**) i
+`docs/evidence/boot-uefi-4096mb-run41361076620/` (UEFI/OVMF). Vidi se splash, zatim desktop sa panelom, satom,
+Nova pozadinom i Nova dobrodošlicom iz `/usr/share/nova/welcome.html`. Sa 1 GB je desktop viđen kroz kadrove u
+kojima sat napreduje 21:55 → 22:01, pa je i sam memory budget live sesije izvodljiv — bez ijedne otvorene
+aplikacije preko auto-startovanog Firefox-a.
 
-**Nije dokazano:** UEFI putanja do desktopa (GRUB meni jeste viđen, desktop ne), Secure Boot, instalacija na disk,
-boot sa diska i bilo kakva upotrebljivost ili performanse na pravom Celeronu. Zato su koraci ниже i dalje napisani
-kao QA postupak, ne kao uputstvo za gotov proizvod.
+**Nije dokazano:** Secure Boot, instalacija na disk, boot sa diska i bilo kakva upotrebljivost ili performanse na
+pravom Celeronu. UEFI desktop jeste viđen, ali **nakon jednog pritiska na Enter** — boot meni nema odbrojavanje,
+pa na UEFI mašini neko mora da potvrdi prvu stavku. Zato su koraci niže i dalje napisani kao QA postupak, ne kao
+uputstvo za gotov proizvod.
 
 ## 0. Ako slika dolazi podeljena na delove (Windows)
 
@@ -68,7 +70,8 @@ Pisanje ISO-a briše prethodni sadržaj USB-a. Projekat ne izdaje automatske `dd
 **Šta se vidi odmah posle uključivanja.** Na Legacy BIOS mašini (stariji Celeron) boot ide sam: isolinux ima
 timeout od 10 s i podiže „Start Linux Mint" bez pitanja. Na UEFI mašini se pojavi GRUB meni sa listom unosa i
 **stoji na ekranu** dok ne pritisnete Enter — nasleđena Mint-ova konfiguracija nema `set timeout`. To je očekivano,
-nije kvar; prvi unos na listi je pravi.
+nije kvar; prvi unos na listi je pravi. Upravo tako je i snimljeno u emulaciji: kadar 002 u
+`docs/evidence/boot-uefi-4096mb-run41361076620/` je meni, a kadar 013 je desktop koji se pojavio posle Enter-a.
 
 Pre otvaranja instalera proverite:
 
